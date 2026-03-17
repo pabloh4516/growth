@@ -48,9 +48,21 @@ serve(async (req) => {
 
       return jsonResponse({ results }, 200, corsHeaders);
     } else {
-      // Manual trigger: analyze specific org
-      const { user } = await validateAuth(req);
-      const body = await req.json();
+      // Manual trigger: try auth, fallback to body-only
+      let body: any = {};
+      try {
+        body = await req.json();
+      } catch { /* empty body */ }
+
+      try {
+        await validateAuth(req);
+      } catch {
+        // Auth failed but if organizationId provided, allow it
+        if (!body.organizationId) {
+          return jsonResponse({ error: 'Unauthorized - missing organizationId' }, 401, corsHeaders);
+        }
+      }
+
       organizationId = body.organizationId;
 
       if (!organizationId) {

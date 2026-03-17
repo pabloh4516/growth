@@ -74,7 +74,7 @@ function useHealthScore() {
     queryFn: async () => {
       const { data } = await supabase
         .from("campaigns")
-        .select("real_roas, ctr, cpa, status")
+        .select("real_roas, ctr, real_cpa, status")
         .eq("organization_id", orgId!)
         .eq("status", "active");
       if (!data || data.length === 0) return 0;

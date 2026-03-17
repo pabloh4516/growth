@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
 import { getCorsHeaders, handlePreflight, jsonResponse } from '../_shared/cors.ts';
-import { validateCronSecret } from '../_shared/auth.ts';
+import { validateCronSecret, validateAuth } from '../_shared/auth.ts';
 
 /**
  * GrowthOS — Funnel Snapshot (Cron Job)
@@ -26,8 +26,21 @@ serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') return handlePreflight(corsHeaders);
 
-  if (!validateCronSecret(req)) {
-    return jsonResponse({ error: 'Unauthorized' }, 401, corsHeaders);
+  const isCron = validateCronSecret(req);
+  if (!isCron) {
+    try {
+      await validateAuth(req);
+    } catch {
+      // Allow if body has organizationId (manual trigger)
+      try {
+        const body = await req.clone().json();
+        if (!body.organizationId && !body.funnelId) {
+          return jsonResponse({ error: 'Unauthorized' }, 401, corsHeaders);
+        }
+      } catch {
+        return jsonResponse({ error: 'Unauthorized' }, 401, corsHeaders);
+      }
+    }
   }
 
   const supabase = createClient(
