@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { useDashboardMetrics, useTopCampaigns, useInsights } from "@/lib/hooks/use-supabase-data";
@@ -31,13 +32,17 @@ function useSalesFromCheckout(days: number) {
     queryKey: ["checkout-sales", orgId, days],
     queryFn: async () => {
       const dateFrom = new Date();
-      dateFrom.setDate(dateFrom.getDate() - days);
+      if (days <= 1) {
+        dateFrom.setHours(0, 0, 0, 0);
+      } else {
+        dateFrom.setDate(dateFrom.getDate() - days);
+      }
 
       const { data, error } = await supabase
         .from("utmify_sales")
         .select("status, revenue, matched_campaign_id")
         .eq("organization_id", orgId!)
-        .gte("sale_date", dateFrom.toISOString().split("T")[0]);
+        .gte("sale_date", dateFrom.toISOString());
 
       if (error) throw error;
       if (!data) return { paid: 0, paidRevenue: 0, pending: 0, pendingRevenue: 0, refunded: 0, total: 0, matched: 0 };
@@ -93,6 +98,7 @@ function calcChange(daily: any[], field: string): number {
 }
 
 export default function DashboardPage() {
+  const orgId = useOrgId();
   const { days } = usePeriodStore();
   const queryClient = useQueryClient();
   const { data: metrics, isLoading: metricsLoading } = useDashboardMetrics(days);
@@ -100,6 +106,42 @@ export default function DashboardPage() {
   const { data: insights, isLoading: insightsLoading } = useInsights();
   const { data: healthScore } = useHealthScore();
   const { data: salesData } = useSalesFromCheckout(days);
+  const autoSyncDone = useRef(false);
+
+  // Auto-sync Google Ads on dashboard load (if last sync > 5 min)
+  useEffect(() => {
+    if (!orgId || autoSyncDone.current) return;
+    autoSyncDone.current = true;
+
+    (async () => {
+      try {
+        const { data: accounts } = await supabase
+          .from("ad_accounts")
+          .select("id, last_sync_at")
+          .eq("organization_id", orgId)
+          .eq("status", "connected");
+
+        if (!accounts || accounts.length === 0) return;
+
+        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const staleAccounts = accounts.filter(
+          (a) => !a.last_sync_at || a.last_sync_at < fiveMinAgo
+        );
+
+        if (staleAccounts.length > 0) {
+          console.log("Auto-syncing Google Ads (stale data)...");
+          await supabase.functions.invoke("google-ads-sync", {
+            body: { organizationId: orgId, scope: "campaigns_only" },
+          });
+          queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+          queryClient.invalidateQueries({ queryKey: ["top-campaigns"] });
+        }
+      } catch (err) {
+        console.error("Auto-sync failed:", err);
+      }
+    })();
+  }, [orgId, queryClient]);
 
   const dailyData = metrics?.daily?.map((d: any) => ({
     date: new Date(d.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),

@@ -3,9 +3,14 @@ import { createClient } from "@/lib/supabase/client";
 const supabase = createClient();
 
 // ─── Dashboard ─────────────────────────────────────────
-export async function fetchDashboardMetrics(orgId: string, days = 30) {
+export async function fetchDashboardMetrics(orgId: string, days = 1) {
   const dateFrom = new Date();
-  dateFrom.setDate(dateFrom.getDate() - days);
+  if (days <= 1) {
+    // "Hoje": mostra só hoje
+    dateFrom.setHours(0, 0, 0, 0);
+  } else {
+    dateFrom.setDate(dateFrom.getDate() - days);
+  }
 
   const { data, error } = await supabase
     .from("metrics_daily")
