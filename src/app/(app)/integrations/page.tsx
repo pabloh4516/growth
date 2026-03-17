@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useIntegrations, useAdAccounts } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { getGoogleAdsAuthUrl, syncGA4, syncSearchConsole } from "@/lib/services/edge-functions";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Copy, Check, Link2, Trash2, RefreshCw, ExternalLink,
@@ -56,9 +57,95 @@ export default function IntegrationsPage() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
+  // Utmify state
+  const [utmifyToken, setUtmifyToken] = useState("");
+  const [utmifySecret, setUtmifySecret] = useState("");
+  const [savingUtmify, setSavingUtmify] = useState(false);
+  const [utmifyConfig, setUtmifyConfig] = useState<any>(null);
+  const [loadingUtmify, setLoadingUtmify] = useState(true);
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
 
   const connectedAccounts = adAccounts?.filter((a: any) => a.status === "connected") || [];
   const allAccounts = adAccounts || [];
+
+  // Load Utmify config
+  const loadUtmifyConfig = useCallback(async () => {
+    if (!orgId) return;
+    setLoadingUtmify(true);
+    try {
+      const { data } = await supabase
+        .from("utmify_config")
+        .select("*")
+        .eq("organization_id", orgId)
+        .single();
+      if (data) {
+        setUtmifyConfig(data);
+        setUtmifyToken(data.api_token || "");
+        setUtmifySecret(data.webhook_secret || "");
+      }
+    } catch {
+      // No config yet
+    } finally {
+      setLoadingUtmify(false);
+    }
+  }, [orgId]);
+
+  useEffect(() => { loadUtmifyConfig(); }, [loadUtmifyConfig]);
+
+  const webhookUrl = orgId
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/utmify-webhook?org=${orgId}`
+    : "";
+
+  const handleSaveUtmify = async () => {
+    if (!orgId) return;
+    setSavingUtmify(true);
+    try {
+      const payload = {
+        organization_id: orgId,
+        api_token: utmifyToken.trim() || null,
+        webhook_secret: utmifySecret.trim() || null,
+        is_active: true,
+      };
+
+      if (utmifyConfig?.id) {
+        const { error } = await supabase
+          .from("utmify_config")
+          .update(payload)
+          .eq("id", utmifyConfig.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("utmify_config")
+          .insert(payload);
+        if (error) throw error;
+      }
+
+      toast.success("Utmify configurada!");
+      loadUtmifyConfig();
+    } catch (err: any) {
+      toast.error("Erro ao salvar", { description: err?.message });
+    } finally {
+      setSavingUtmify(false);
+    }
+  };
+
+  const handleDeactivateUtmify = async () => {
+    if (!utmifyConfig?.id) return;
+    try {
+      await supabase.from("utmify_config").update({ is_active: false }).eq("id", utmifyConfig.id);
+      toast.success("Utmify desativada");
+      loadUtmifyConfig();
+    } catch (err: any) {
+      toast.error("Erro", { description: err?.message });
+    }
+  };
+
+  const handleCopyWebhook = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopiedWebhook(true);
+    toast.success("URL do webhook copiada!");
+    setTimeout(() => setCopiedWebhook(false), 2000);
+  };
 
   const handleConnect = async (type: string) => {
     if (!orgId) {
@@ -175,7 +262,7 @@ export default function IntegrationsPage() {
   }
 
   const otherIntegrations = Object.entries(INTEGRATION_META)
-    .filter(([type]) => type !== "google_ads")
+    .filter(([type]) => type !== "google_ads" && type !== "utmify")
     .map(([type, meta]) => {
       const integration = integrations?.find((i: any) => i.type === type);
       return { type, ...meta, status: integration?.status || "disconnected", id: integration?.id };
@@ -333,6 +420,113 @@ export default function IntegrationsPage() {
             </CardContent>
           </Card>
         )}
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* UTMIFY — VENDAS REAIS */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-heading font-bold flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-bold text-sm">U</div>
+              Utmify
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Vendas reais via webhook — calcula ROAS real das campanhas
+            </p>
+          </div>
+          {utmifyConfig?.is_active && (
+            <StatusBadge status="active" />
+          )}
+        </div>
+
+        <Card className="surface-glow">
+          <CardContent className="p-6 space-y-5">
+            {/* Token da API */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Token da API (Utmify)</Label>
+              <p className="text-xs text-muted-foreground">
+                Acesse o painel da Utmify → Configurações → API → copie o token e cole aqui.
+              </p>
+              <Input
+                type="password"
+                value={utmifyToken}
+                onChange={(e) => setUtmifyToken(e.target.value)}
+                placeholder="Cole seu token da API da Utmify aqui..."
+                className="font-mono text-sm"
+              />
+            </div>
+
+            {/* Webhook Secret (opcional) */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Webhook Secret (opcional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Se a Utmify fornecer um secret para validação HMAC, cole aqui. Deixe vazio se não tiver.
+              </p>
+              <Input
+                type="password"
+                value={utmifySecret}
+                onChange={(e) => setUtmifySecret(e.target.value)}
+                placeholder="Secret para validação HMAC (opcional)"
+                className="font-mono text-sm"
+              />
+            </div>
+
+            {/* Webhook URL para copiar */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">URL do Webhook (configure na Utmify)</Label>
+              <p className="text-xs text-muted-foreground">
+                Copie esta URL e cole no painel da Utmify → Configurações → Webhooks → URL de notificação.
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  value={webhookUrl}
+                  readOnly
+                  className="text-xs font-mono bg-secondary/50"
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                />
+                <Button size="sm" variant="outline" onClick={handleCopyWebhook} className="shrink-0">
+                  {copiedWebhook ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            {/* Botões */}
+            <div className="flex items-center gap-3 pt-2">
+              <Button onClick={handleSaveUtmify} disabled={savingUtmify}>
+                {savingUtmify && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {utmifyConfig ? "Atualizar Configuração" : "Ativar Utmify"}
+              </Button>
+              {utmifyConfig?.is_active && (
+                <Button variant="ghost" className="text-destructive" onClick={handleDeactivateUtmify}>
+                  <Unplug className="h-4 w-4 mr-2" />
+                  Desativar
+                </Button>
+              )}
+            </div>
+
+            {/* Status */}
+            {utmifyConfig && (
+              <div className="rounded-lg bg-secondary/30 p-3 text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Status</span>
+                  <span className={utmifyConfig.is_active ? "text-success" : "text-destructive"}>
+                    {utmifyConfig.is_active ? "Ativa" : "Inativa"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Token configurado</span>
+                  <span>{utmifyConfig.api_token ? "Sim" : "Não"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">HMAC Secret</span>
+                  <span>{utmifyConfig.webhook_secret ? "Configurado" : "Não configurado"}</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* ═══════════════════════════════════════════════════════ */}
