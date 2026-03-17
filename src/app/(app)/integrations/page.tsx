@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useIntegrations, useAdAccounts } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
-import { getGoogleAdsAuthUrl, syncGA4, syncSearchConsole } from "@/lib/services/edge-functions";
+import { getGoogleAdsAuthUrl, syncGA4, syncSearchConsole, syncUtmify } from "@/lib/services/edge-functions";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,6 +64,7 @@ export default function IntegrationsPage() {
   const [utmifyConfig, setUtmifyConfig] = useState<any>(null);
   const [loadingUtmify, setLoadingUtmify] = useState(true);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [syncingUtmify, setSyncingUtmify] = useState(false);
 
   const connectedAccounts = adAccounts?.filter((a: any) => a.status === "connected") || [];
   const allAccounts = adAccounts || [];
@@ -137,6 +138,27 @@ export default function IntegrationsPage() {
       loadUtmifyConfig();
     } catch (err: any) {
       toast.error("Erro", { description: err?.message });
+    }
+  };
+
+  const handleSyncUtmify = async () => {
+    if (!orgId) return;
+    setSyncingUtmify(true);
+    try {
+      const result = await syncUtmify(orgId) as any;
+      const r = result?.results?.[0];
+      if (r?.error) {
+        toast.error("Erro ao sincronizar", { description: r.error });
+      } else {
+        toast.success("Utmify sincronizada!", {
+          description: `${r?.ordersFound || 0} vendas encontradas, ${r?.matched || 0} vinculadas a campanhas`,
+          duration: 8000,
+        });
+      }
+    } catch (err: any) {
+      toast.error("Erro ao sincronizar Utmify", { description: err?.message });
+    } finally {
+      setSyncingUtmify(false);
     }
   };
 
@@ -498,6 +520,12 @@ export default function IntegrationsPage() {
                 {savingUtmify && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 {utmifyConfig ? "Atualizar Configuração" : "Ativar Utmify"}
               </Button>
+              {utmifyConfig?.is_active && utmifyConfig?.api_token && (
+                <Button variant="outline" onClick={handleSyncUtmify} disabled={syncingUtmify}>
+                  {syncingUtmify ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                  Testar Conexão / Sincronizar
+                </Button>
+              )}
               {utmifyConfig?.is_active && (
                 <Button variant="ghost" className="text-destructive" onClick={handleDeactivateUtmify}>
                   <Unplug className="h-4 w-4 mr-2" />

@@ -34,8 +34,18 @@ async function runJob(job: string): Promise<JobResult> {
   try {
     switch (job) {
       case "sync": {
-        const data = await invokeEdgeFunction("google-ads-sync");
-        return { job: "sync", status: "ok", data };
+        const [adsData, utmifyData] = await Promise.allSettled([
+          invokeEdgeFunction("google-ads-sync"),
+          invokeEdgeFunction("utmify-sync"),
+        ]);
+        return {
+          job: "sync",
+          status: "ok",
+          data: {
+            googleAds: adsData.status === "fulfilled" ? adsData.value : adsData.reason?.message,
+            utmify: utmifyData.status === "fulfilled" ? utmifyData.value : utmifyData.reason?.message,
+          },
+        };
       }
 
       case "analysis": {

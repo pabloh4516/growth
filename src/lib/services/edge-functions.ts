@@ -79,6 +79,11 @@ export function generateAudiences(orgId: string, sourceType: string) {
   return invoke("generate-audiences", { organizationId: orgId, sourceType });
 }
 
+// ─── Utmify ──────────────────────────────────────────
+export function syncUtmify(orgId: string) {
+  return invoke("utmify-sync", { organizationId: orgId });
+}
+
 // ─── Integrations ──────────────────────────────────────
 export function syncGA4(orgId: string) {
   return invoke("ga4-sync", { organizationId: orgId });
