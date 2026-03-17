@@ -72,8 +72,10 @@ export default function IntegrationsPage() {
   const [copiedSellxPay, setCopiedSellxPay] = useState(false);
   const [sellxCheckoutSecret, setSellxCheckoutSecret] = useState("");
   const [sellxPaySecret, setSellxPaySecret] = useState("");
+  const [sellxPayApiToken, setSellxPayApiToken] = useState("");
   const [savingSellx, setSavingSellx] = useState(false);
   const [sellxConfig, setSellxConfig] = useState<any>(null);
+  const [syncingSellx, setSyncingSellx] = useState(false);
 
   const connectedAccounts = adAccounts?.filter((a: any) => a.status === "connected") || [];
   const allAccounts = adAccounts || [];
@@ -117,6 +119,7 @@ export default function IntegrationsPage() {
         const config = data.config_json || {};
         setSellxCheckoutSecret(config.checkout_secret || "");
         setSellxPaySecret(config.pay_secret || "");
+        setSellxPayApiToken(config.pay_api_token || "");
       }
     } catch { /* no config yet */ }
   }, [orgId]);
@@ -134,6 +137,7 @@ export default function IntegrationsPage() {
         config_json: {
           checkout_secret: sellxCheckoutSecret.trim() || null,
           pay_secret: sellxPaySecret.trim() || null,
+          pay_api_token: sellxPayApiToken.trim() || null,
         },
       };
 
@@ -715,6 +719,19 @@ export default function IntegrationsPage() {
                 </div>
               </div>
               <div className="space-y-2">
+                <Label className="text-xs font-medium">API Token (Bearer)</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Token de acesso da API SellxPay — permite puxar vendas históricas
+                </p>
+                <Input
+                  type="password"
+                  value={sellxPayApiToken}
+                  onChange={(e) => setSellxPayApiToken(e.target.value)}
+                  placeholder="Cole o Access Token da API SellxPay..."
+                  className="text-xs font-mono"
+                />
+              </div>
+              <div className="space-y-2">
                 <Label className="text-xs font-medium">Webhook Secret (opcional)</Label>
                 <Input
                   type="password"
@@ -733,17 +750,43 @@ export default function IntegrationsPage() {
             </CardContent>
           </Card>
 
-          {/* Save button for secrets */}
-          <div className="lg:col-span-2">
+          {/* Save + Sync buttons */}
+          <div className="lg:col-span-2 flex items-center gap-3">
             <Button onClick={handleSaveSellx} disabled={savingSellx}>
               {savingSellx && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Salvar Secrets do SellX
+              Salvar Configuração
             </Button>
+            {sellxConfig?.config_json?.pay_api_token && (
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  if (!orgId) return;
+                  setSyncingSellx(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke("sellx-sync", {
+                      body: { organizationId: orgId, daysBack: 7 },
+                    });
+                    if (error) throw error;
+                    toast.success("Vendas importadas!", {
+                      description: `${data?.totalSaved || 0} vendas salvas, ${data?.totalMatched || 0} vinculadas a campanhas (${data?.period})`,
+                      duration: 8000,
+                    });
+                  } catch (err: any) {
+                    toast.error("Erro ao importar vendas", { description: err?.message });
+                  } finally {
+                    setSyncingSellx(false);
+                  }
+                }}
+                disabled={syncingSellx}
+              >
+                {syncingSellx ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                Importar Vendas (7 dias)
+              </Button>
+            )}
             {sellxConfig && (
-              <span className="text-xs text-muted-foreground ml-3">
-                {sellxConfig.config_json?.checkout_secret ? "Checkout secret configurado" : ""}
-                {sellxConfig.config_json?.checkout_secret && sellxConfig.config_json?.pay_secret ? " • " : ""}
-                {sellxConfig.config_json?.pay_secret ? "Pay secret configurado" : ""}
+              <span className="text-xs text-muted-foreground">
+                {sellxConfig.config_json?.pay_api_token ? "API Token configurado" : ""}
+                {sellxConfig.config_json?.checkout_secret ? " • Checkout secret OK" : ""}
               </span>
             )}
           </div>
