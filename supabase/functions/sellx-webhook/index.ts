@@ -135,17 +135,25 @@ serve(async (req) => {
       const product = data.product || {};
       const tracking = data.trackingParameters || data.tracking || order.tracking || {};
 
+      console.log('SellxCheckout webhook received:', { event, orderId: order.id, amount: order.amount });
+
       const statusMap: Record<string, string> = {
         'order.paid': 'paid',
         'order.created': 'waiting_payment',
         'order.failed': 'refused',
         'order.refunded': 'refunded',
+        'order.pending': 'waiting_payment',
+        'order.canceled': 'refused',
+        'test': 'paid', // Test webhook
       };
 
-      orderId = order.id || order.orderNumber || crypto.randomUUID();
+      orderId = order.id || order.orderNumber || `test-${Date.now()}`;
       status = statusMap[event] || order.status || 'paid';
-      // Amount comes in cents from SellxCheckout
-      revenue = order.amount ? Number(order.amount) / 100 : 0;
+
+      // Amount: detect if it's in cents (integer > 1000) or reais (decimal)
+      const rawAmount = Number(order.amount || 0);
+      revenue = rawAmount > 1000 ? rawAmount / 100 : rawAmount;
+
       customerEmail = customer.email || null;
       customerName = customer.name || null;
       customerPhone = customer.phone || null;
@@ -153,14 +161,14 @@ serve(async (req) => {
       paymentMethod = order.paymentMethod || null;
       saleDate = order.paidAt || payload.timestamp || new Date().toISOString();
 
-      // UTM params (may come in tracking or order metadata)
-      utmSource = tracking.utm_source || order.utm_source || null;
-      utmCampaign = tracking.utm_campaign || order.utm_campaign || null;
-      utmMedium = tracking.utm_medium || order.utm_medium || null;
-      utmContent = tracking.utm_content || order.utm_content || null;
-      utmTerm = tracking.utm_term || order.utm_term || null;
-      src = tracking.src || order.src || null;
-      sck = tracking.sck || order.sck || null;
+      // UTM params (may come in tracking, order metadata, or query params)
+      utmSource = tracking.utm_source || order.utm_source || data.utm_source || null;
+      utmCampaign = tracking.utm_campaign || order.utm_campaign || data.utm_campaign || null;
+      utmMedium = tracking.utm_medium || order.utm_medium || data.utm_medium || null;
+      utmContent = tracking.utm_content || order.utm_content || data.utm_content || null;
+      utmTerm = tracking.utm_term || order.utm_term || data.utm_term || null;
+      src = tracking.src || order.src || data.src || null;
+      sck = tracking.sck || order.sck || data.sck || null;
     }
 
     // =============================================
