@@ -17,7 +17,9 @@ import {
 import { Menu, Search, Bell, LogOut, User, Settings, Building2 } from "lucide-react";
 
 const PERIODS = [
+  { label: "Hoje", value: "hoje" },
   { label: "7d", value: "7d" },
+  { label: "15d", value: "15d" },
   { label: "30d", value: "30d" },
   { label: "90d", value: "90d" },
 ] as const;
