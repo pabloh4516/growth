@@ -1,0 +1,28 @@
+project_id = "vynyhzybgjpdhocezrmh"
+
+[functions.generate-audiences]
+verify_jwt = false
+
+[functions.create-google-audience]
+verify_jwt = false
+
+[functions.utmify-webhook]
+verify_jwt = false
+
+[functions.payment-webhooks]
+verify_jwt = false
+
+[functions.tracking-script]
+verify_jwt = false
+
+[functions.google-ads-oauth]
+verify_jwt = false
+
+[functions.google-ads-sync]
+verify_jwt = false
+
+[functions.ga4-sync]
+verify_jwt = false
+
+[functions.search-console-sync]
+verify_jwt = false
