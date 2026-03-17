@@ -35,10 +35,20 @@ serve(async (req) => {
     const payload = JSON.parse(rawBody);
 
     // =============================================
-    // HMAC Validation (SellxCheckout uses X-Webhook-Signature)
+    // HMAC Validation (per-org secret from integrations table)
     // =============================================
     const signature = req.headers.get('x-webhook-signature') || '';
-    const webhookSecret = Deno.env.get('SELLX_WEBHOOK_SECRET') || '';
+
+    // Get org-specific webhook secret from integrations table
+    const { data: sellxIntegration } = await supabase
+      .from('integrations')
+      .select('config_json')
+      .eq('organization_id', orgId)
+      .eq('type', 'sellx')
+      .single();
+
+    const secretKey = source === 'gateway' ? 'pay_secret' : 'checkout_secret';
+    const webhookSecret = sellxIntegration?.config_json?.[secretKey] || '';
 
     if (webhookSecret && signature) {
       const encoder = new TextEncoder();

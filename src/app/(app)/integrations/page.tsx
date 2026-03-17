@@ -70,6 +70,10 @@ export default function IntegrationsPage() {
   // SellX state
   const [copiedSellxCheckout, setCopiedSellxCheckout] = useState(false);
   const [copiedSellxPay, setCopiedSellxPay] = useState(false);
+  const [sellxCheckoutSecret, setSellxCheckoutSecret] = useState("");
+  const [sellxPaySecret, setSellxPaySecret] = useState("");
+  const [savingSellx, setSavingSellx] = useState(false);
+  const [sellxConfig, setSellxConfig] = useState<any>(null);
 
   const connectedAccounts = adAccounts?.filter((a: any) => a.status === "connected") || [];
   const allAccounts = adAccounts || [];
@@ -97,6 +101,56 @@ export default function IntegrationsPage() {
   }, [orgId]);
 
   useEffect(() => { loadUtmifyConfig(); }, [loadUtmifyConfig]);
+
+  // Load SellX config
+  const loadSellxConfig = useCallback(async () => {
+    if (!orgId) return;
+    try {
+      const { data } = await supabase
+        .from("integrations")
+        .select("*")
+        .eq("organization_id", orgId)
+        .eq("type", "sellx")
+        .single();
+      if (data) {
+        setSellxConfig(data);
+        const config = data.config_json || {};
+        setSellxCheckoutSecret(config.checkout_secret || "");
+        setSellxPaySecret(config.pay_secret || "");
+      }
+    } catch { /* no config yet */ }
+  }, [orgId]);
+
+  useEffect(() => { loadSellxConfig(); }, [loadSellxConfig]);
+
+  const handleSaveSellx = async () => {
+    if (!orgId) return;
+    setSavingSellx(true);
+    try {
+      const payload = {
+        organization_id: orgId,
+        type: "sellx",
+        status: "connected",
+        config_json: {
+          checkout_secret: sellxCheckoutSecret.trim() || null,
+          pay_secret: sellxPaySecret.trim() || null,
+        },
+      };
+
+      if (sellxConfig?.id) {
+        await supabase.from("integrations").update(payload).eq("id", sellxConfig.id);
+      } else {
+        await supabase.from("integrations").insert(payload);
+      }
+
+      toast.success("SellX configurado!");
+      loadSellxConfig();
+    } catch (err: any) {
+      toast.error("Erro ao salvar", { description: err?.message });
+    } finally {
+      setSavingSellx(false);
+    }
+  };
 
   const webhookUrl = orgId
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/utmify-webhook?org=${orgId}`
@@ -611,6 +665,19 @@ export default function IntegrationsPage() {
                   </Button>
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Webhook Secret (HMAC-SHA256)</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Cole o secret do SellxCheckout para validar assinaturas
+                </p>
+                <Input
+                  type="password"
+                  value={sellxCheckoutSecret}
+                  onChange={(e) => setSellxCheckoutSecret(e.target.value)}
+                  placeholder="Cole o Webhook Secret do SellxCheckout..."
+                  className="text-xs font-mono"
+                />
+              </div>
               <div className="rounded-lg bg-secondary/30 p-3 text-xs space-y-1">
                 <p className="font-medium text-muted-foreground">Eventos recebidos:</p>
                 <p>order.paid → venda confirmada</p>
@@ -647,6 +714,16 @@ export default function IntegrationsPage() {
                   </Button>
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Webhook Secret (opcional)</Label>
+                <Input
+                  type="password"
+                  value={sellxPaySecret}
+                  onChange={(e) => setSellxPaySecret(e.target.value)}
+                  placeholder="Secret do SellxPay (se houver)..."
+                  className="text-xs font-mono"
+                />
+              </div>
               <div className="rounded-lg bg-secondary/30 p-3 text-xs space-y-1">
                 <p className="font-medium text-muted-foreground">Eventos recebidos:</p>
                 <p>transaction.paid → pagamento confirmado</p>
@@ -655,6 +732,21 @@ export default function IntegrationsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Save button for secrets */}
+          <div className="lg:col-span-2">
+            <Button onClick={handleSaveSellx} disabled={savingSellx}>
+              {savingSellx && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Salvar Secrets do SellX
+            </Button>
+            {sellxConfig && (
+              <span className="text-xs text-muted-foreground ml-3">
+                {sellxConfig.config_json?.checkout_secret ? "Checkout secret configurado" : ""}
+                {sellxConfig.config_json?.checkout_secret && sellxConfig.config_json?.pay_secret ? " • " : ""}
+                {sellxConfig.config_json?.pay_secret ? "Pay secret configurado" : ""}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
