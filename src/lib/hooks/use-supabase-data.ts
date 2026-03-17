@@ -239,6 +239,15 @@ export function useIntegrations() {
   });
 }
 
+export function useAdAccounts() {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: ["ad-accounts", orgId],
+    queryFn: () => queries.fetchAdAccounts(orgId!),
+    enabled: !!orgId,
+  });
+}
+
 // ─── Reports ──────────────────────────────────────────
 export function useReports() {
   const orgId = useOrgId();

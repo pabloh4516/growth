@@ -337,6 +337,17 @@ export async function fetchIntegrations(orgId: string) {
   return data;
 }
 
+export async function fetchAdAccounts(orgId: string) {
+  const { data, error } = await supabase
+    .from("ad_accounts")
+    .select("*")
+    .eq("organization_id", orgId)
+    .order("connected_at", { ascending: false });
+
+  if (error) throw error;
+  return data;
+}
+
 // ─── Reports ──────────────────────────────────────────
 export async function fetchReports(orgId: string) {
   const { data, error } = await supabase
