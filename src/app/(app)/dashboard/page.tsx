@@ -18,11 +18,48 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Eye, MousePointerClick, DollarSign, ShoppingCart, TrendingUp, Target, Brain, RefreshCw, Loader2,
+  CheckCircle, Clock, Ban, Link2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const supabase = createClient();
+
+function useSalesFromCheckout(days: number) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: ["checkout-sales", orgId, days],
+    queryFn: async () => {
+      const dateFrom = new Date();
+      dateFrom.setDate(dateFrom.getDate() - days);
+
+      const { data, error } = await supabase
+        .from("utmify_sales")
+        .select("status, revenue, matched_campaign_id")
+        .eq("organization_id", orgId!)
+        .gte("sale_date", dateFrom.toISOString().split("T")[0]);
+
+      if (error) throw error;
+      if (!data) return { paid: 0, paidRevenue: 0, pending: 0, pendingRevenue: 0, refunded: 0, total: 0, matched: 0 };
+
+      const paid = data.filter((s) => s.status === "paid");
+      const pending = data.filter((s) => s.status === "waiting_payment");
+      const refunded = data.filter((s) => s.status === "refunded" || s.status === "chargedback");
+      const matched = data.filter((s) => s.matched_campaign_id);
+
+      return {
+        paid: paid.length,
+        paidRevenue: paid.reduce((sum, s) => sum + Number(s.revenue || 0), 0),
+        pending: pending.length,
+        pendingRevenue: pending.reduce((sum, s) => sum + Number(s.revenue || 0), 0),
+        refunded: refunded.length,
+        total: data.length,
+        matched: matched.length,
+      };
+    },
+    enabled: !!orgId,
+  });
+}
 
 function useHealthScore() {
   const orgId = useOrgId();
@@ -62,6 +99,7 @@ export default function DashboardPage() {
   const { data: topCampaigns, isLoading: campaignsLoading } = useTopCampaigns(5);
   const { data: insights, isLoading: insightsLoading } = useInsights();
   const { data: healthScore } = useHealthScore();
+  const { data: salesData } = useSalesFromCheckout(days);
 
   const dailyData = metrics?.daily?.map((d: any) => ({
     date: new Date(d.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
@@ -110,6 +148,50 @@ export default function DashboardPage() {
         <KPICard title="ROAS" value={`${(metrics?.roas ?? 0).toFixed(2)}x`} change={changeRevenue - changeCost} sparkData={sparkRevenue.slice(-10)} delay={4} icon={<TrendingUp className="h-4 w-4" />} />
         <KPICard title="CPA" value={formatBRL(metrics?.cpa ?? 0)} change={changeCPA * -1} sparkData={sparkCost.slice(-10)} delay={5} icon={<Target className="h-4 w-4" />} />
       </div>
+
+      {/* Vendas do Checkout */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}>
+        <Card className="surface-glow border-primary/10">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-heading">Vendas do Checkout</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <CheckCircle className="h-3.5 w-3.5 text-success" />
+                  Pagas
+                </div>
+                <p className="text-2xl font-heading font-bold">{salesData?.paid ?? 0}</p>
+                <p className="text-xs font-mono text-success">{formatBRL(salesData?.paidRevenue ?? 0)}</p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5 text-warning" />
+                  Pendentes
+                </div>
+                <p className="text-2xl font-heading font-bold">{salesData?.pending ?? 0}</p>
+                <p className="text-xs font-mono text-warning">{formatBRL(salesData?.pendingRevenue ?? 0)}</p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Ban className="h-3.5 w-3.5 text-destructive" />
+                  Reembolsos
+                </div>
+                <p className="text-2xl font-heading font-bold">{salesData?.refunded ?? 0}</p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Link2 className="h-3.5 w-3.5 text-primary" />
+                  Vinculadas
+                </div>
+                <p className="text-2xl font-heading font-bold">{salesData?.matched ?? 0}<span className="text-sm text-muted-foreground font-normal">/{salesData?.total ?? 0}</span></p>
+                <p className="text-xs text-muted-foreground">vendas atribuídas a campanhas</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <motion.div className="lg:col-span-2" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}>
