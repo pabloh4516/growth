@@ -6,12 +6,15 @@ import * as queries from "@/lib/services/supabase-queries";
 import type { UtmifySalesFilters } from "@/lib/services/supabase-queries";
 
 // ─── Dashboard ─────────────────────────────────────────
-export function useDashboardMetrics(days = 30) {
+const REFRESH_INTERVAL = 30 * 1000; // 30 seconds
+
+export function useDashboardMetrics(days = 1) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: ["dashboard-metrics", orgId, days],
     queryFn: () => queries.fetchDashboardMetrics(orgId!, days),
     enabled: !!orgId,
+    refetchInterval: REFRESH_INTERVAL,
   });
 }
 
@@ -21,6 +24,7 @@ export function useTopCampaigns(limit = 5) {
     queryKey: ["top-campaigns", orgId, limit],
     queryFn: () => queries.fetchTopCampaigns(orgId!, limit),
     enabled: !!orgId,
+    refetchInterval: REFRESH_INTERVAL,
   });
 }
 
@@ -31,6 +35,7 @@ export function useCampaigns() {
     queryKey: ["campaigns", orgId],
     queryFn: () => queries.fetchCampaigns(orgId!),
     enabled: !!orgId,
+    refetchInterval: REFRESH_INTERVAL,
   });
 }
 
@@ -50,6 +55,7 @@ export function useUtmifySales(filters?: UtmifySalesFilters) {
     queryKey: ["utmify-sales", orgId, filters],
     queryFn: () => queries.fetchUtmifySales(orgId!, filters),
     enabled: !!orgId,
+    refetchInterval: REFRESH_INTERVAL,
   });
 }
 

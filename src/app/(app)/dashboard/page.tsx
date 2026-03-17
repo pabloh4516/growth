@@ -63,6 +63,7 @@ function useSalesFromCheckout(days: number) {
       };
     },
     enabled: !!orgId,
+    refetchInterval: 30 * 1000,
   });
 }
 
@@ -108,12 +109,11 @@ export default function DashboardPage() {
   const { data: salesData } = useSalesFromCheckout(days);
   const autoSyncDone = useRef(false);
 
-  // Auto-sync Google Ads on dashboard load (if last sync > 5 min)
+  // Auto-sync Google Ads every 60 seconds
   useEffect(() => {
-    if (!orgId || autoSyncDone.current) return;
-    autoSyncDone.current = true;
+    if (!orgId) return;
 
-    (async () => {
+    const syncGoogleAds = async () => {
       try {
         const { data: accounts } = await supabase
           .from("ad_accounts")
@@ -123,25 +123,28 @@ export default function DashboardPage() {
 
         if (!accounts || accounts.length === 0) return;
 
-        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const oneMinAgo = new Date(Date.now() - 60 * 1000).toISOString();
         const staleAccounts = accounts.filter(
-          (a) => !a.last_sync_at || a.last_sync_at < fiveMinAgo
+          (a) => !a.last_sync_at || a.last_sync_at < oneMinAgo
         );
 
         if (staleAccounts.length > 0) {
-          console.log("Auto-syncing Google Ads (stale data)...");
           await supabase.functions.invoke("google-ads-sync", {
             body: { organizationId: orgId, scope: "campaigns_only" },
           });
-          queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-          queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
-          queryClient.invalidateQueries({ queryKey: ["top-campaigns"] });
         }
       } catch (err) {
         console.error("Auto-sync failed:", err);
       }
-    })();
-  }, [orgId, queryClient]);
+    };
+
+    // Sync immediately on load
+    syncGoogleAds();
+
+    // Then every 60 seconds
+    const interval = setInterval(syncGoogleAds, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [orgId]);
 
   const dailyData = metrics?.daily?.map((d: any) => ({
     date: new Date(d.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
