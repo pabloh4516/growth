@@ -161,14 +161,24 @@ serve(async (req) => {
       paymentMethod = order.paymentMethod || null;
       saleDate = order.paidAt || payload.timestamp || new Date().toISOString();
 
-      // UTM params (may come in tracking, order metadata, or query params)
-      utmSource = tracking.utm_source || order.utm_source || data.utm_source || null;
-      utmCampaign = tracking.utm_campaign || order.utm_campaign || data.utm_campaign || null;
-      utmMedium = tracking.utm_medium || order.utm_medium || data.utm_medium || null;
-      utmContent = tracking.utm_content || order.utm_content || data.utm_content || null;
-      utmTerm = tracking.utm_term || order.utm_term || data.utm_term || null;
+      // UTM params — accept both camelCase (utmSource) and snake_case (utm_source)
+      utmSource = tracking.utm_source || tracking.utmSource || order.utm_source || order.utmSource || data.utm_source || null;
+      utmCampaign = tracking.utm_campaign || tracking.utmCampaign || order.utm_campaign || order.utmCampaign || data.utm_campaign || null;
+      utmMedium = tracking.utm_medium || tracking.utmMedium || order.utm_medium || order.utmMedium || data.utm_medium || null;
+      utmContent = tracking.utm_content || tracking.utmContent || order.utm_content || order.utmContent || data.utm_content || null;
+      utmTerm = tracking.utm_term || tracking.utmTerm || order.utm_term || order.utmTerm || data.utm_term || null;
       src = tracking.src || order.src || data.src || null;
       sck = tracking.sck || order.sck || data.sck || null;
+
+      // Also check metadata object
+      const meta = tracking.metadata || order.metadata || {};
+      utmSource = utmSource || meta.utm_source || meta.utmSource || null;
+      utmCampaign = utmCampaign || meta.utm_campaign || meta.utmCampaign || null;
+      utmMedium = utmMedium || meta.utm_medium || meta.utmMedium || null;
+      src = src || meta.src || null;
+      sck = sck || meta.sck || null;
+
+      console.log('UTM params extracted:', { utmSource, utmCampaign, utmMedium, src, sck });
     }
 
     // =============================================
