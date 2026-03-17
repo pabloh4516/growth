@@ -151,6 +151,46 @@ serve(async (req) => {
           }
         }
 
+        // Sync historical daily metrics (last 7 days) for chart data
+        try {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          const startDate = sevenDaysAgo.toISOString().split('T')[0];
+          const endDate = today;
+
+          const historicalResults = await googleAdsSearch(
+            accessToken, customerId, GAQL.campaignsByDateRange(startDate, endDate), developerToken
+          );
+
+          for (const row of historicalResults) {
+            const c = row.campaign;
+            const m = row.metrics;
+            const date = row.segments?.date;
+            const internalId = campaignMap[String(c.id)];
+            if (!date || !internalId) continue;
+
+            await supabase.from('metrics_daily').upsert({
+              organization_id: account.organization_id,
+              date,
+              entity_type: 'campaign',
+              entity_id: internalId,
+              impressions: Number(m.impressions || 0),
+              clicks: Number(m.clicks || 0),
+              cost: Number(m.costMicros || 0) / 1_000_000,
+              conversions: Number(m.conversions || 0),
+              revenue: Number(m.conversionsValue || 0),
+              ctr: Number(m.ctr || 0),
+              cpc: Number(m.averageCpc || 0) / 1_000_000,
+              roas: Number(m.costMicros) > 0
+                ? Number(m.conversionsValue || 0) / (Number(m.costMicros) / 1_000_000) : 0,
+              cpa: Number(m.conversions) > 0
+                ? (Number(m.costMicros) / 1_000_000) / Number(m.conversions) : 0,
+            }, { onConflict: 'date,entity_type,entity_id' });
+          }
+        } catch (e) {
+          console.error('Error syncing historical metrics:', e);
+        }
+
         // Skip advanced sync if scope is campaigns_only
         if (syncScope === 'campaigns_only') {
           await supabase.from('ad_accounts').update({ last_sync_at: new Date().toISOString() }).eq('id', account.id);

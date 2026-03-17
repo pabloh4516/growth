@@ -346,7 +346,23 @@ export const GAQL = {
       metrics.ctr, metrics.average_cpc
     FROM campaign
     WHERE campaign.status != 'REMOVED'
+      AND segments.date DURING TODAY
     ORDER BY metrics.cost_micros DESC
+  `,
+
+  campaignsByDateRange: (startDate: string, endDate: string) => `
+    SELECT
+      campaign.id, campaign.name, campaign.status,
+      campaign.campaign_budget, campaign.advertising_channel_type,
+      campaign_budget.amount_micros,
+      segments.date,
+      metrics.impressions, metrics.clicks, metrics.cost_micros,
+      metrics.conversions, metrics.conversions_value,
+      metrics.ctr, metrics.average_cpc
+    FROM campaign
+    WHERE campaign.status != 'REMOVED'
+      AND segments.date BETWEEN '${startDate}' AND '${endDate}'
+    ORDER BY segments.date DESC, metrics.cost_micros DESC
   `,
 
   adGroups: (campaignId: string) => `
