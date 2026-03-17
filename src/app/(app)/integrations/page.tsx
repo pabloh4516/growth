@@ -28,7 +28,9 @@ const INTEGRATION_META: Record<string, { name: string; description: string; icon
   tiktok_ads: { name: "TikTok Ads", description: "Campanhas no TikTok", icon: "T", connectable: false },
   ga4: { name: "Google Analytics 4", description: "Sessões, pageviews e bounce rate", icon: "A", connectable: true },
   search_console: { name: "Search Console", description: "Rankings SEO e keywords", icon: "S", connectable: true },
-  utmify: { name: "Utmify", description: "Vendas reais via webhook", icon: "U", connectable: true },
+  utmify: { name: "Utmify", description: "Vendas reais via API", icon: "U", connectable: true },
+  sellx_checkout: { name: "SellxCheckout", description: "Vendas do checkout próprio", icon: "S", connectable: true },
+  sellx_pay: { name: "SellxPay", description: "Transações do gateway próprio", icon: "$", connectable: true },
   stripe: { name: "Stripe", description: "Pagamentos via webhook", icon: "$", connectable: false },
   resend: { name: "Resend", description: "Email transacional", icon: "R", connectable: false },
   twilio: { name: "Twilio", description: "Call tracking e números", icon: "T", connectable: false },
@@ -65,6 +67,9 @@ export default function IntegrationsPage() {
   const [loadingUtmify, setLoadingUtmify] = useState(true);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [syncingUtmify, setSyncingUtmify] = useState(false);
+  // SellX state
+  const [copiedSellxCheckout, setCopiedSellxCheckout] = useState(false);
+  const [copiedSellxPay, setCopiedSellxPay] = useState(false);
 
   const connectedAccounts = adAccounts?.filter((a: any) => a.status === "connected") || [];
   const allAccounts = adAccounts || [];
@@ -283,8 +288,15 @@ export default function IntegrationsPage() {
     return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
+  const sellxCheckoutWebhookUrl = orgId
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sellx-webhook?org=${orgId}&source=checkout`
+    : "";
+  const sellxPayWebhookUrl = orgId
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sellx-webhook?org=${orgId}&source=gateway`
+    : "";
+
   const otherIntegrations = Object.entries(INTEGRATION_META)
-    .filter(([type]) => type !== "google_ads" && type !== "utmify")
+    .filter(([type]) => !["google_ads", "utmify", "sellx_checkout", "sellx_pay"].includes(type))
     .map(([type, meta]) => {
       const integration = integrations?.find((i: any) => i.type === type);
       return { type, ...meta, status: integration?.status || "disconnected", id: integration?.id };
@@ -555,6 +567,95 @@ export default function IntegrationsPage() {
             )}
           </CardContent>
         </Card>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* SELLX — CHECKOUT + GATEWAY */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-heading font-bold flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400 font-bold text-sm">$</div>
+            SellX — Checkout & Gateway
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Receba vendas do seu checkout e gateway em tempo real
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* SellxCheckout */}
+          <Card className="surface-glow">
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400 font-bold">S</div>
+                <div>
+                  <h3 className="text-sm font-semibold">SellxCheckout</h3>
+                  <p className="text-xs text-muted-foreground">Vendas do checkout — order.paid, order.refunded</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Webhook URL</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Cole no SellxCheckout → Configurações → Webhooks
+                </p>
+                <div className="flex gap-2">
+                  <Input value={sellxCheckoutWebhookUrl} readOnly className="text-[11px] font-mono bg-secondary/50" onClick={(e) => (e.target as HTMLInputElement).select()} />
+                  <Button size="sm" variant="outline" className="shrink-0" onClick={() => {
+                    navigator.clipboard.writeText(sellxCheckoutWebhookUrl);
+                    setCopiedSellxCheckout(true);
+                    toast.success("URL copiada!");
+                    setTimeout(() => setCopiedSellxCheckout(false), 2000);
+                  }}>
+                    {copiedSellxCheckout ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <div className="rounded-lg bg-secondary/30 p-3 text-xs space-y-1">
+                <p className="font-medium text-muted-foreground">Eventos recebidos:</p>
+                <p>order.paid → venda confirmada</p>
+                <p>order.refunded → reembolso</p>
+                <p>order.failed → pagamento falhou</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* SellxPay */}
+          <Card className="surface-glow">
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 font-bold">$</div>
+                <div>
+                  <h3 className="text-sm font-semibold">SellxPay</h3>
+                  <p className="text-xs text-muted-foreground">Transações do gateway — PIX, cartão, boleto</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Webhook URL (ou Postback URL)</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Configure via API: POST /api/v1/webhooks ou use como postback_url
+                </p>
+                <div className="flex gap-2">
+                  <Input value={sellxPayWebhookUrl} readOnly className="text-[11px] font-mono bg-secondary/50" onClick={(e) => (e.target as HTMLInputElement).select()} />
+                  <Button size="sm" variant="outline" className="shrink-0" onClick={() => {
+                    navigator.clipboard.writeText(sellxPayWebhookUrl);
+                    setCopiedSellxPay(true);
+                    toast.success("URL copiada!");
+                    setTimeout(() => setCopiedSellxPay(false), 2000);
+                  }}>
+                    {copiedSellxPay ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <div className="rounded-lg bg-secondary/30 p-3 text-xs space-y-1">
+                <p className="font-medium text-muted-foreground">Eventos recebidos:</p>
+                <p>transaction.paid → pagamento confirmado</p>
+                <p>transaction.reversed → estorno/reembolso</p>
+                <p>transaction.chargedback → chargeback</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════ */}
