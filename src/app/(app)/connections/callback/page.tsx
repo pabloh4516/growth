@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useOrgId } from "@/lib/hooks/use-org";
@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 const supabase = createClient();
 
-export default function ConnectionsCallbackPage() {
+function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orgId = useOrgId();
@@ -78,5 +78,18 @@ export default function ConnectionsCallbackPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function ConnectionsCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Carregando...</p>
+      </div>
+    }>
+      <CallbackContent />
+    </Suspense>
   );
 }
