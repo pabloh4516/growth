@@ -1,6 +1,5 @@
 "use client";
 
-import { AdCard } from "@/components/shared/ad-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
 

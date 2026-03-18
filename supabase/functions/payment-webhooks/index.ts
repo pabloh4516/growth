@@ -450,9 +450,53 @@ serve(async (req: Request) => {
     }
 
     // -----------------------------------------------------------------------
-    // 3. Parse the payload through the platform-specific parser
+    // 3. Validate webhook signature (per-platform)
     // -----------------------------------------------------------------------
     const rawBody = await req.text();
+
+    const { data: integration } = await supabase
+      .from('integrations')
+      .select('config_json')
+      .eq('organization_id', orgId)
+      .eq('type', platform)
+      .maybeSingle();
+
+    const webhookSecret = integration?.config_json?.webhook_secret || '';
+
+    if (webhookSecret) {
+      const signature = req.headers.get('x-webhook-signature')
+        || req.headers.get('stripe-signature')
+        || req.headers.get('x-hotmart-hottok')
+        || req.headers.get('x-hub-signature-256')
+        || '';
+
+      if (!signature) {
+        return jsonResponse({ error: 'Missing webhook signature' }, 401, corsHeaders);
+      }
+
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(webhookSecret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+      );
+      const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(rawBody));
+      const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      const sigValue = signature.replace(/^sha256=/, '').replace(/^v1,/, '');
+      if (sigValue !== expectedSignature) {
+        console.error(`[payment-webhooks][${platform}] Invalid signature for org ${orgId}`);
+        return jsonResponse({ error: 'Invalid signature' }, 401, corsHeaders);
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // 3b. Parse payload
+    // -----------------------------------------------------------------------
     let payload: any;
     try {
       payload = JSON.parse(rawBody);

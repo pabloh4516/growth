@@ -28,6 +28,7 @@ serve(async (req) => {
     // Auth: either user token or cron secret
     let organizationId: string;
     const isCron = validateCronSecret(req);
+    console.log('[ai-analysis] isCron:', isCron);
 
     if (isCron) {
       // Cron mode: analyze all orgs with AI enabled
@@ -52,11 +53,14 @@ serve(async (req) => {
       let body: any = {};
       try {
         body = await req.json();
+        console.log('[ai-analysis] body:', JSON.stringify(body));
       } catch { /* empty body */ }
 
       try {
-        await validateAuth(req);
-      } catch {
+        const authResult = await validateAuth(req);
+        console.log('[ai-analysis] auth OK, user:', authResult.user?.id);
+      } catch (authErr) {
+        console.log('[ai-analysis] auth failed:', authErr.message);
         // Auth failed but if organizationId provided, allow it
         if (!body.organizationId) {
           return jsonResponse({ error: 'Unauthorized - missing organizationId' }, 401, corsHeaders);
@@ -64,6 +68,7 @@ serve(async (req) => {
       }
 
       organizationId = body.organizationId;
+      console.log('[ai-analysis] organizationId:', organizationId);
 
       if (!organizationId) {
         return jsonResponse({ error: 'Missing organizationId' }, 400, corsHeaders);
@@ -73,16 +78,17 @@ serve(async (req) => {
       return jsonResponse(result, 200, corsHeaders);
     }
   } catch (error) {
-    console.error('AI Analysis error:', error);
+    console.error('[ai-analysis] FATAL error:', error.message, error.stack);
     return jsonResponse({ error: error.message }, 500, getCorsHeaders(req));
   }
 });
 
 async function analyzeOrganization(supabase: any, organizationId: string) {
   const startTime = Date.now();
+  console.log('[analyzeOrg] Starting for org:', organizationId);
 
   // Create analysis record
-  const { data: analysis } = await supabase
+  const { data: analysis, error: analysisError } = await supabase
     .from('ai_analyses')
     .insert({
       organization_id: organizationId,
@@ -93,16 +99,20 @@ async function analyzeOrganization(supabase: any, organizationId: string) {
     .select()
     .single();
 
+  console.log('[analyzeOrg] analysis insert:', analysis?.id, 'error:', analysisError?.message);
+
   try {
     // 1. Get AI settings
-    const { data: settings } = await supabase
+    const { data: settings, error: settingsError } = await supabase
       .from('ai_settings')
       .select('*')
       .eq('organization_id', organizationId)
       .single();
 
+    console.log('[analyzeOrg] settings:', settings ? 'found' : 'NOT FOUND', 'error:', settingsError?.message);
+
     if (!settings) {
-      throw new Error('AI settings not found');
+      throw new Error(`AI settings not found for org ${organizationId}. DB error: ${settingsError?.message}`);
     }
 
     // 2. Get active campaigns with metrics

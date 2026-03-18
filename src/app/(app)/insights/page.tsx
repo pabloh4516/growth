@@ -43,7 +43,10 @@ export default function InsightsPage() {
 
   const approve = async (id: string) => {
     await supabase.from("ai_decisions").update({ status: "approved" }).eq("id", id);
+    // Execute the approved decision on Google Ads
+    await supabase.functions.invoke("ai-execute", { body: { decisionId: id } });
     queryClient.invalidateQueries({ queryKey: ["ai-stats"] });
+    queryClient.invalidateQueries({ queryKey: ["campaigns"] });
   };
 
   const reject = async (id: string) => {

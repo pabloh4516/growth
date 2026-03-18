@@ -1,20 +1,14 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { useOrgId } from "@/lib/hooks/use-org";
 import { useAdAccounts } from "@/lib/hooks/use-supabase-data";
 import { PlatformHero } from "@/components/shared/platform-hero";
 import { MetricCard } from "@/components/shared/metric-card";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
-import { formatBRL, formatCompact } from "@/lib/utils";
-
-const supabase = createClient();
+import { formatBRL } from "@/lib/utils";
 
 export default function TikTokOverviewPage() {
-  const orgId = useOrgId();
   const { data: adAccounts } = useAdAccounts();
 
   const tiktokAccounts = (adAccounts || []).filter((a: any) => a.platform === "tiktok_ads");

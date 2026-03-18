@@ -16,12 +16,13 @@ const ALLOWED_ORIGINS = [
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 
+const APP_DOMAIN = Deno.env.get('APP_DOMAIN') || 'growthOS';
+
 export function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get('origin') || '';
   const isAllowed = ALLOWED_ORIGINS.includes(origin) ||
     origin.startsWith(SUPABASE_URL) ||
-    origin.endsWith('.vercel.app') ||
-    origin.endsWith('.pages.dev') ||
+    (origin.endsWith('.vercel.app') && origin.includes(APP_DOMAIN)) ||
     origin === '';
 
   return {

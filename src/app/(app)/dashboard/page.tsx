@@ -172,7 +172,7 @@ export default function DashboardPage() {
                     <YAxis tick={{ fill: "#50506A", fontSize: 9 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
                     <Tooltip
                       contentStyle={{ backgroundColor: "#14141E", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", fontSize: "12px", color: "#EEEEF8" }}
-                      formatter={(value: number, name: string) => [formatBRL(value), name === "investimento" ? "Investimento" : "Receita"]}
+                      formatter={(value: any, name: any) => [formatBRL(Number(value || 0)), name === "investimento" ? "Investimento" : "Receita"]}
                     />
                     <Area type="monotone" dataKey="investimento" name="investimento" stroke="#8B7FFF" strokeWidth={2} fill="url(#gradInvest)" />
                     <Area type="monotone" dataKey="receita" name="receita" stroke="#29D98A" strokeWidth={2} fill="url(#gradReceita)" />
@@ -205,7 +205,10 @@ export default function DashboardPage() {
                     meta={decision.created_at ? new Date(decision.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : undefined}
                     onApprove={async () => {
                       await supabase.from("ai_decisions").update({ status: "approved" }).eq("id", decision.id);
+                      // Execute the approved decision
+                      await supabase.functions.invoke("ai-execute", { body: { decisionId: decision.id } });
                       queryClient.invalidateQueries({ queryKey: ["ai-decisions"] });
+                      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
                     }}
                     onReject={async () => {
                       await supabase.from("ai_decisions").update({ status: "rejected" }).eq("id", decision.id);

@@ -50,7 +50,11 @@ serve(async (req) => {
     const secretKey = source === 'gateway' ? 'pay_secret' : 'checkout_secret';
     const webhookSecret = sellxIntegration?.config_json?.[secretKey] || '';
 
-    if (webhookSecret && signature) {
+    if (webhookSecret) {
+      if (!signature) {
+        return jsonResponse({ error: 'Missing webhook signature' }, 401, corsHeaders);
+      }
+
       const encoder = new TextEncoder();
       const key = await crypto.subtle.importKey(
         'raw',
@@ -150,9 +154,18 @@ serve(async (req) => {
       orderId = order.id || order.orderNumber || `test-${Date.now()}`;
       status = statusMap[event] || order.status || 'paid';
 
-      // Amount: detect if it's in cents (integer > 1000) or reais (decimal)
-      const rawAmount = Number(order.amount || 0);
-      revenue = rawAmount > 1000 ? rawAmount / 100 : rawAmount;
+      // Amount: SellX sends cents as integer. Detect by checking if it's an integer
+      // and if there's an explicit currency_type field. Fallback: integers >= 100 are likely cents.
+      const rawAmount = Number(order.amount || order.price || 0);
+      const currencyType = order.currency_type || order.amountType || payload.amountType || '';
+      if (currencyType === 'cents' || currencyType === 'centavos') {
+        revenue = rawAmount / 100;
+      } else if (currencyType === 'reais' || currencyType === 'brl') {
+        revenue = rawAmount;
+      } else {
+        // Heuristic: if integer and >= 100, likely cents (R$1.00+)
+        revenue = Number.isInteger(rawAmount) && rawAmount >= 100 ? rawAmount / 100 : rawAmount;
+      }
 
       customerEmail = customer.email || null;
       customerName = customer.name || null;

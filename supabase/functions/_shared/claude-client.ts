@@ -4,7 +4,7 @@
  */
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const DEFAULT_MODEL = 'claude-sonnet-4-6-20250514';
+const DEFAULT_MODEL = 'claude-3-haiku-20240307';
 
 interface ClaudeOptions {
   system: string;
