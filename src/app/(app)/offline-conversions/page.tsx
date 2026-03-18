@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useOrgId } from "@/lib/hooks/use-org";
-import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,7 @@ import { toast } from "sonner";
 const supabase = createClient();
 
 const columns: ColumnDef<any, any>[] = [
-  { accessorKey: "file_name", header: "Arquivo", cell: ({ row }) => <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-muted-foreground" /><span className="font-medium">{row.original.file_name || "—"}</span></div> },
+  { accessorKey: "file_name", header: "Arquivo", cell: ({ row }) => <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-t3" /><span className="font-medium">{row.original.file_name || "—"}</span></div> },
   { accessorKey: "status", header: "Status", cell: ({ row }) => <Badge variant={row.original.status === "processed" ? "success" : row.original.status === "processing" ? "warning" : "secondary"}>{row.original.status === "processed" ? "Processado" : row.original.status === "processing" ? "Processando" : "Pendente"}</Badge> },
   { accessorKey: "total_rows", header: "Linhas", cell: ({ row }) => <span className="font-mono">{row.original.total_rows || 0}</span> },
   { accessorKey: "matched_rows", header: "Matched", cell: ({ row }) => <span className="font-mono text-success">{row.original.matched_rows || 0}</span> },
@@ -30,7 +29,7 @@ const columns: ColumnDef<any, any>[] = [
       return <span className={`font-mono text-sm ${rate >= 80 ? "text-success" : rate >= 50 ? "text-warning" : "text-destructive"}`}>{rate.toFixed(0)}%</span>;
     },
   },
-  { accessorKey: "created_at", header: "Data Upload", cell: ({ row }) => <span className="text-xs text-muted-foreground">{new Date(row.original.created_at).toLocaleDateString("pt-BR")}</span> },
+  { accessorKey: "created_at", header: "Data Upload", cell: ({ row }) => <span className="text-xs text-t3">{new Date(row.original.created_at).toLocaleDateString("pt-BR")}</span> },
 ];
 
 export default function OfflineConversionsPage() {
@@ -102,32 +101,32 @@ export default function OfflineConversionsPage() {
   const pendingUploads = uploads?.filter((u: any) => u.status === "pending") || [];
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Conversões Offline"
-        description="Upload e matching de conversões offline com campanhas"
-        actions={
-          <>
-            <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleUpload} />
-            <Button onClick={() => fileRef.current?.click()} disabled={uploading}>
-              {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-              Upload CSV
-            </Button>
-          </>
-        }
-      />
+    <div className="space-y-6 animate-fade-up">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-t1">Conversões Offline</h1>
+          <p className="text-sm text-t3">Upload e matching de conversões offline com campanhas</p>
+        </div>
+        <>
+          <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleUpload} />
+          <Button onClick={() => fileRef.current?.click()} disabled={uploading}>
+            {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+            Upload CSV
+          </Button>
+        </>
+      </div>
 
       {/* CSV format guide */}
-      <Card className="surface-glow border-primary/10">
+      <Card className="border-primary/10">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
             <div>
               <p className="text-sm font-medium">Formato esperado do CSV</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-t3 mt-1">
                 Colunas: <code className="bg-muted px-1 rounded">email, revenue, date, order_id, utm_source, utm_campaign</code>
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5">Separador: vírgula ou ponto-e-vírgula. Primeira linha = header.</p>
+              <p className="text-xs text-t3 mt-0.5">Separador: vírgula ou ponto-e-vírgula. Primeira linha = header.</p>
             </div>
           </div>
         </CardContent>
@@ -135,15 +134,15 @@ export default function OfflineConversionsPage() {
 
       {/* Pending uploads that need processing */}
       {pendingUploads.length > 0 && (
-        <Card className="surface-glow border-warning/20">
+        <Card className="border-warning/20">
           <CardContent className="p-4 space-y-2">
             <p className="text-sm font-medium">Uploads pendentes de processamento</p>
             {pendingUploads.map((upload: any) => (
               <div key={upload.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
                 <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <FileText className="h-4 w-4 text-t3" />
                   <span className="text-sm">{upload.file_name}</span>
-                  <span className="text-xs text-muted-foreground">{upload.total_rows} linhas</span>
+                  <span className="text-xs text-t3">{upload.total_rows} linhas</span>
                 </div>
                 <Button size="sm" onClick={() => handleProcess(upload.id)} disabled={processing === upload.id}>
                   {processing === upload.id ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Play className="h-3.5 w-3.5 mr-1" />}

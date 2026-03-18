@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useUtmifySales } from "@/lib/hooks/use-supabase-data";
 import { usePeriodStore } from "@/lib/hooks/use-period";
 import { formatBRL } from "@/lib/utils";
-import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
 import { KPICard } from "@/components/shared/kpi-card";
 import { Badge } from "@/components/ui/badge";
@@ -54,19 +53,19 @@ const columns: ColumnDef<any, any>[] = [
     accessorKey: "utm_source",
     header: "UTM Source",
     meta: { className: "hidden md:table-cell" },
-    cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.utm_source || "—"}</span>,
+    cell: ({ row }) => <span className="text-xs text-t3">{row.original.utm_source || "—"}</span>,
   },
   {
     accessorKey: "utm_campaign",
     header: "UTM Campaign",
     meta: { className: "hidden md:table-cell" },
-    cell: ({ row }) => <span className="text-xs text-muted-foreground truncate max-w-[150px] block">{row.original.utm_campaign || "—"}</span>,
+    cell: ({ row }) => <span className="text-xs text-t3 truncate max-w-[150px] block">{row.original.utm_campaign || "—"}</span>,
   },
   {
     accessorKey: "campaigns",
     header: "Campanha Matched",
     cell: ({ row }) => (
-      <span className={`text-sm ${row.original.campaigns?.name ? "" : "text-muted-foreground"}`}>
+      <span className={`text-sm ${row.original.campaigns?.name ? "" : "text-t3"}`}>
         {row.original.campaigns?.name || "Sem match"}
       </span>
     ),
@@ -78,7 +77,7 @@ const columns: ColumnDef<any, any>[] = [
         <TooltipTrigger asChild>
           <span className="flex items-center gap-1 cursor-help">
             Confiança
-            <HelpCircle className="h-3 w-3 text-muted-foreground" />
+            <HelpCircle className="h-3 w-3 text-t3" />
           </span>
         </TooltipTrigger>
         <TooltipContent className="max-w-[200px]">
@@ -99,7 +98,7 @@ const columns: ColumnDef<any, any>[] = [
     accessorKey: "created_at",
     header: "Data",
     cell: ({ row }) => (
-      <span className="text-xs text-muted-foreground">
+      <span className="text-xs text-t3">
         {new Date(row.original.created_at).toLocaleDateString("pt-BR")}
       </span>
     ),
@@ -171,18 +170,7 @@ export default function SalesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Vendas Reais"
-        description="Dados de vendas confirmadas do checkout — a verdade sobre seu ROAS"
-        actions={
-          <Button variant="outline" size="sm" onClick={handleRematch} disabled={rematching}>
-            {rematching ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-2" />}
-            Re-vincular Campanhas
-          </Button>
-        }
-      />
-
+    <div className="space-y-6 animate-fade-up">
       {/* Unmatched warning */}
       {unmatchedPercent > 20 && (
         <Card className="border-warning/30 bg-warning/5">
@@ -190,7 +178,7 @@ export default function SalesPage() {
             <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
             <div>
               <p className="text-sm font-medium">{unmatchedCount} vendas sem vínculo com campanha ({unmatchedPercent.toFixed(0)}%)</p>
-              <p className="text-xs text-muted-foreground">Verifique se os UTMs estão configurados corretamente nos links de checkout.</p>
+              <p className="text-xs text-t3">Verifique se os UTMs estão configurados corretamente nos links de checkout.</p>
             </div>
           </CardContent>
         </Card>
@@ -225,6 +213,12 @@ export default function SalesPage() {
             {f.label}
           </Button>
         ))}
+        <div className="ml-auto">
+          <Button variant="outline" size="sm" onClick={handleRematch} disabled={rematching}>
+            {rematching ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-2" />}
+            Re-vincular Campanhas
+          </Button>
+        </div>
       </div>
 
       <DataTable

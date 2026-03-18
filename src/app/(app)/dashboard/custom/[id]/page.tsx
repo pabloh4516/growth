@@ -33,7 +33,7 @@ export default function CustomDashboardDetailPage() {
   });
 
   if (isLoading) return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  if (!dashboard) return <div className="text-center py-16 text-muted-foreground">Dashboard não encontrado</div>;
+  if (!dashboard) return <div className="text-center py-16 text-t3">Dashboard não encontrado</div>;
 
   const dailyData = metrics?.daily?.map((d: any) => ({
     date: new Date(d.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
@@ -42,10 +42,10 @@ export default function CustomDashboardDetailPage() {
   })) || [];
 
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-up space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft className="h-4 w-4" /></Button>
-        <h1 className="text-xl font-heading font-bold">{dashboard.name}</h1>
+        <h1 className="text-xl font-heading font-bold text-t1">{dashboard.name}</h1>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -55,7 +55,7 @@ export default function CustomDashboardDetailPage() {
         <KPICard title="ROAS" value={`${(metrics?.roas ?? 0).toFixed(2)}x`} delay={3} icon={<TrendingUp className="h-4 w-4" />} />
       </div>
 
-      <Card className="surface-glow">
+      <Card>
         <CardHeader><CardTitle className="text-base font-heading">Receita vs Investimento</CardTitle></CardHeader>
         <CardContent>
           {dailyData.length > 0 ? (
@@ -72,7 +72,7 @@ export default function CustomDashboardDetailPage() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-[300px] flex items-center justify-center text-muted-foreground">Sem dados para o período</div>
+            <div className="h-[300px] flex items-center justify-center text-t3">Sem dados para o período</div>
           )}
         </CardContent>
       </Card>

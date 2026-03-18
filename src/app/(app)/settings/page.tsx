@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { createClient } from "@/lib/supabase/client";
-import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,8 +60,11 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Configurações" description="Gerencie seu perfil e organização" />
+    <div className="space-y-6 animate-fade-up">
+      <div>
+        <h1 className="text-2xl font-heading font-bold text-t1">Configurações</h1>
+        <p className="text-sm text-t3 mt-1">Gerencie seu perfil e organização</p>
+      </div>
 
       <div className="flex flex-col md:flex-row gap-6">
         <div className="md:w-56 flex md:flex-col gap-1">
@@ -74,7 +76,7 @@ export default function SettingsPage() {
                 onClick={() => setTab(t.id)}
                 className={cn(
                   "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors text-left",
-                  tab === t.id ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-accent"
+                  tab === t.id ? "bg-primary/10 text-primary font-medium" : "text-t3 hover:bg-s2"
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -86,7 +88,7 @@ export default function SettingsPage() {
 
         <div className="flex-1">
           {tab === "profile" && (
-            <Card className="surface-glow">
+            <Card>
               <CardHeader><CardTitle className="text-base font-heading">Perfil</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -106,7 +108,7 @@ export default function SettingsPage() {
           )}
 
           {tab === "organization" && (
-            <Card className="surface-glow">
+            <Card>
               <CardHeader><CardTitle className="text-base font-heading">Organização</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -130,10 +132,10 @@ export default function SettingsPage() {
           )}
 
           {tab === "api" && (
-            <Card className="surface-glow">
+            <Card>
               <CardHeader><CardTitle className="text-base font-heading">API Keys</CardTitle></CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">Gerencie suas chaves de API para integrações externas.</p>
+                <p className="text-sm text-t3 mb-4">Gerencie suas chaves de API para integrações externas.</p>
                 <Button
                   onClick={async () => {
                     if (!currentOrg) return;
@@ -159,7 +161,7 @@ export default function SettingsPage() {
           )}
 
           {tab === "notifications" && (
-            <Card className="surface-glow">
+            <Card>
               <CardHeader><CardTitle className="text-base font-heading">Notificações</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 {[
@@ -171,7 +173,7 @@ export default function SettingsPage() {
                   <div key={item.key} className="flex items-center justify-between py-2">
                     <div>
                       <p className="text-sm font-medium">{item.label}</p>
-                      <p className="text-xs text-muted-foreground">{item.desc}</p>
+                      <p className="text-xs text-t3">{item.desc}</p>
                     </div>
                     <button
                       className="relative inline-flex h-6 w-11 items-center rounded-full bg-muted transition-colors data-[state=checked]:bg-primary"
@@ -196,7 +198,7 @@ export default function SettingsPage() {
           )}
 
           {tab === "billing" && (
-            <Card className="surface-glow">
+            <Card>
               <CardHeader><CardTitle className="text-base font-heading">Faturamento</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
@@ -204,8 +206,8 @@ export default function SettingsPage() {
                     <h3 className="text-sm font-semibold">Plano Atual</h3>
                     <span className="text-xs font-semibold bg-primary/20 text-primary px-2 py-0.5 rounded-full">Pro</span>
                   </div>
-                  <p className="text-2xl font-bold font-mono">R$ 497<span className="text-sm text-muted-foreground font-normal">/mês</span></p>
-                  <p className="text-xs text-muted-foreground mt-1">Próxima cobrança: 17/04/2026</p>
+                  <p className="text-2xl font-bold font-mono">R$ 497<span className="text-sm text-t3 font-normal">/mês</span></p>
+                  <p className="text-xs text-t3 mt-1">Próxima cobrança: 17/04/2026</p>
                 </div>
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Uso do mês</p>
@@ -216,7 +218,7 @@ export default function SettingsPage() {
                     { label: "Contatos CRM", used: 142, limit: 5000 },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-40">{item.label}</span>
+                      <span className="text-xs text-t3 w-40">{item.label}</span>
                       <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                         <div className="h-full bg-primary rounded-full" style={{ width: `${(item.used / item.limit) * 100}%` }} />
                       </div>

@@ -5,9 +5,9 @@ import { useAlerts } from "@/lib/hooks/use-supabase-data";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useOrgId } from "@/lib/hooks/use-org";
-import { PageHeader } from "@/components/shared/page-header";
+import { StatusPill } from "@/components/shared/status-pill";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,10 +32,10 @@ import { toast } from "sonner";
 const supabase = createClient();
 
 const SEVERITY_CONFIG = {
-  low: { icon: Info, color: "text-info", bg: "bg-info/10", label: "Baixa" },
-  medium: { icon: AlertTriangle, color: "text-warning", bg: "bg-warning/10", label: "Média" },
-  high: { icon: AlertCircle, color: "text-orange-400", bg: "bg-orange-500/10", label: "Alta" },
-  critical: { icon: AlertCircle, color: "text-destructive", bg: "bg-destructive/10", label: "Crítica" },
+  low: { icon: Info, color: "text-blue-400", bg: "bg-blue-dim", label: "Baixa" },
+  medium: { icon: AlertTriangle, color: "text-amber-400", bg: "bg-amber-dim", label: "Média" },
+  high: { icon: AlertCircle, color: "text-red-400", bg: "bg-red-dim", label: "Alta" },
+  critical: { icon: AlertCircle, color: "text-red-500", bg: "bg-red-dim", label: "Crítica" },
 };
 
 const METRICS = [
@@ -186,30 +186,25 @@ export default function AlertsPage() {
   const activeAlerts = alerts?.filter((a: any) => a.status === "active") || [];
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Alertas"
-        description={`${activeAlerts.length} alerta(s) ativo(s)`}
-      />
-
+    <div className="space-y-6 animate-fade-up">
       <Tabs defaultValue="active">
         <TabsList>
           <TabsTrigger value="active">
             <Bell className="h-4 w-4 mr-2" />
             Alertas Ativos
             {activeAlerts.length > 0 && (
-              <Badge variant="secondary" className="ml-2 text-[10px]">
+              <span className="ml-2 text-2xs bg-s3 text-t2 px-1.5 py-0.5 rounded-[5px] font-medium">
                 {activeAlerts.length}
-              </Badge>
+              </span>
             )}
           </TabsTrigger>
           <TabsTrigger value="rules">
             <Shield className="h-4 w-4 mr-2" />
             Regras de Alerta
             {alertRules && alertRules.length > 0 && (
-              <Badge variant="secondary" className="ml-2 text-[10px]">
+              <span className="ml-2 text-2xs bg-s3 text-t2 px-1.5 py-0.5 rounded-[5px] font-medium">
                 {alertRules.length}
-              </Badge>
+              </span>
             )}
           </TabsTrigger>
         </TabsList>
@@ -232,27 +227,24 @@ export default function AlertsPage() {
                   >
                     <Card
                       className={cn(
-                        "surface-glow",
                         alert.status === "active" && "border-l-2 border-l-warning"
                       )}
                     >
                       <CardContent className="p-4 flex items-start gap-3">
-                        <div className={cn("p-2 rounded-lg", severity.bg)}>
+                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", severity.bg)}>
                           <Icon className={cn("h-4 w-4", severity.color)} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <p className="text-sm font-medium">{alert.title}</p>
-                            <Badge
-                              variant={alert.status === "active" ? "warning" : "success"}
-                              className="text-[10px]"
-                            >
-                              {alert.status === "active" ? "Ativo" : "Resolvido"}
-                            </Badge>
+                            <p className="text-sm font-medium text-t1">{alert.title}</p>
+                            <StatusPill
+                              variant={alert.status === "active" ? "active" : "paused"}
+                              label={alert.status === "active" ? "Ativo" : "Resolvido"}
+                            />
                           </div>
-                          <p className="text-xs text-muted-foreground">{alert.message}</p>
+                          <p className="text-xs text-t3">{alert.message}</p>
                           {alert.triggered_at && (
-                            <p className="text-[10px] text-muted-foreground mt-1">
+                            <p className="text-2xs text-t3 mt-1">
                               {new Date(alert.triggered_at).toLocaleString("pt-BR")}
                             </p>
                           )}
@@ -274,10 +266,13 @@ export default function AlertsPage() {
               })}
             </div>
           ) : (
-            <Card className="surface-glow">
-              <CardContent className="py-16 text-center">
-                <Bell className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-                <p className="text-muted-foreground">Nenhum alerta registrado.</p>
+            <Card>
+              <CardContent className="py-0">
+                <EmptyState
+                  icon="🔔"
+                  title="Nenhum alerta registrado"
+                  subtitle="Alertas aparecerão aqui quando suas regras forem disparadas."
+                />
               </CardContent>
             </Card>
           )}
@@ -302,10 +297,10 @@ export default function AlertsPage() {
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                 >
-                  <Card className="surface-glow border-primary/30">
+                  <Card className="border-primary/30">
                     <CardContent className="p-6 space-y-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-heading font-semibold">
+                        <h3 className="text-sm font-heading font-semibold text-t1">
                           {editingId ? "Editar Regra" : "Nova Regra de Alerta"}
                         </h3>
                         <Button variant="ghost" size="sm" onClick={resetRuleForm}>
@@ -315,11 +310,11 @@ export default function AlertsPage() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                         <div className="space-y-2">
-                          <Label>Métrica</Label>
+                          <Label className="text-t2">Métrica</Label>
                           <select
                             value={formMetric}
                             onChange={(e) => setFormMetric(e.target.value)}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="flex h-10 w-full rounded-md border border-border bg-s2 px-3 py-2 text-sm text-t1 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             {METRICS.map((m) => (
                               <option key={m.value} value={m.value}>
@@ -330,11 +325,11 @@ export default function AlertsPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label>Operador</Label>
+                          <Label className="text-t2">Operador</Label>
                           <select
                             value={formOperator}
                             onChange={(e) => setFormOperator(e.target.value)}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="flex h-10 w-full rounded-md border border-border bg-s2 px-3 py-2 text-sm text-t1 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             {OPERATORS.map((o) => (
                               <option key={o.value} value={o.value}>
@@ -345,7 +340,7 @@ export default function AlertsPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label>Limite (Threshold)</Label>
+                          <Label className="text-t2">Limite (Threshold)</Label>
                           <Input
                             type="number"
                             value={formThreshold}
@@ -356,11 +351,11 @@ export default function AlertsPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label>Severidade</Label>
+                          <Label className="text-t2">Severidade</Label>
                           <select
                             value={formSeverity}
                             onChange={(e) => setFormSeverity(e.target.value)}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="flex h-10 w-full rounded-md border border-border bg-s2 px-3 py-2 text-sm text-t1 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             {Object.entries(SEVERITY_CONFIG).map(([key, cfg]) => (
                               <option key={key} value={key}>
@@ -371,14 +366,14 @@ export default function AlertsPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label>Habilitada</Label>
+                          <Label className="text-t2">Habilitada</Label>
                           <button
                             onClick={() => setFormEnabled(!formEnabled)}
                             className={cn(
                               "flex h-10 w-full items-center justify-center rounded-md border text-sm font-medium transition-colors",
                               formEnabled
-                                ? "bg-success/10 border-success/30 text-success"
-                                : "bg-muted border-input text-muted-foreground"
+                                ? "bg-green-dim border-success/30 text-success"
+                                : "bg-s3 border-border text-t3"
                             )}
                           >
                             {formEnabled ? "Sim" : "Não"}
@@ -424,39 +419,31 @@ export default function AlertsPage() {
                     >
                       <Card
                         className={cn(
-                          "surface-glow",
                           !rule.enabled && "opacity-60"
                         )}
                       >
                         <CardContent className="p-4 flex items-center gap-4">
-                          <div className={cn("p-2 rounded-lg", severity.bg)}>
+                          <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", severity.bg)}>
                             <Icon className={cn("h-4 w-4", severity.color)} />
                           </div>
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <p className="text-sm font-medium">
+                              <p className="text-sm font-medium text-t1">
                                 {metricLabel}
                               </p>
-                              <Badge
-                                variant="secondary"
-                                className={cn(
-                                  "text-[10px]",
-                                  rule.enabled
-                                    ? "bg-success/10 text-success"
-                                    : "bg-muted text-muted-foreground"
-                                )}
-                              >
-                                {rule.enabled ? "Ativa" : "Desativada"}
-                              </Badge>
-                              <Badge
-                                variant="secondary"
-                                className={cn("text-[10px]", severity.bg, severity.color)}
-                              >
+                              <StatusPill
+                                variant={rule.enabled ? "active" : "paused"}
+                                label={rule.enabled ? "Ativa" : "Desativada"}
+                              />
+                              <span className={cn(
+                                "inline-flex items-center text-2xs px-2 py-0.5 rounded-[5px] font-medium",
+                                severity.bg, severity.color
+                              )}>
                                 {severity.label}
-                              </Badge>
+                              </span>
                             </div>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-t3">
                               Alertar quando {rule.metric} {operatorLabel.toLowerCase()} {rule.threshold}
                             </p>
                           </div>
@@ -471,7 +458,7 @@ export default function AlertsPage() {
                               {rule.enabled ? (
                                 <CheckCircle className="h-4 w-4 text-success" />
                               ) : (
-                                <Bell className="h-4 w-4 text-muted-foreground" />
+                                <Bell className="h-4 w-4 text-t3" />
                               )}
                             </Button>
                             <Button
@@ -498,15 +485,19 @@ export default function AlertsPage() {
                 })}
               </div>
             ) : (
-              <Card className="surface-glow">
-                <CardContent className="py-16 text-center">
-                  <Shield className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-                  <p className="text-muted-foreground mb-2">
-                    Nenhuma regra de alerta configurada.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Crie regras para ser notificado quando métricas ultrapassarem limites definidos.
-                  </p>
+              <Card>
+                <CardContent className="py-0">
+                  <EmptyState
+                    icon="🛡️"
+                    title="Nenhuma regra configurada"
+                    subtitle="Crie regras para ser notificado quando métricas ultrapassarem limites definidos."
+                    action={
+                      <Button onClick={() => { resetRuleForm(); setCreating(true); }}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Nova Regra
+                      </Button>
+                    }
+                  />
                 </CardContent>
               </Card>
             )}

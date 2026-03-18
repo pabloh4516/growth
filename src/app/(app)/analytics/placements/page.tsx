@@ -2,7 +2,6 @@
 
 import { useMetricsByPlacement } from "@/lib/hooks/use-supabase-data";
 import { formatBRL, formatNumber } from "@/lib/utils";
-import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
 import { Loader2 } from "lucide-react";
 import { type ColumnDef } from "@tanstack/react-table";
@@ -31,8 +30,11 @@ export default function PlacementsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Placements" description="Performance por posicionamento de anúncio" />
+    <div className="space-y-6 animate-fade-up">
+      <div>
+        <h1 className="text-2xl font-heading font-bold text-t1">Placements</h1>
+        <p className="text-sm text-t3">Performance por posicionamento de anúncio</p>
+      </div>
       <DataTable data={placements || []} columns={columns} searchPlaceholder="Buscar placement..." />
     </div>
   );

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useTasks } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { createClient } from "@/lib/supabase/client";
-import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,16 +34,16 @@ function DraggableTaskCard({ task }: { task: any }) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
-      <Card className="surface-glow cursor-grab active:cursor-grabbing hover:surface-glow-hover transition-all">
+      <Card className="cursor-grab active:cursor-grabbing hover:shadow-md transition-all">
         <CardContent className="p-3">
           <div className="flex items-start gap-2">
-            <div {...listeners}><GripVertical className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" /></div>
+            <div {...listeners}><GripVertical className="h-4 w-4 text-t3 mt-0.5 shrink-0" /></div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium">{task.title}</p>
-              {task.description && <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{task.description}</p>}
+              {task.description && <p className="text-xs text-t3 line-clamp-2 mt-1">{task.description}</p>}
               <div className="flex items-center gap-2 mt-2">
                 <Badge variant={PRIORITY_BADGE[task.priority] || "secondary"} className="text-[10px]">{task.priority}</Badge>
-                {task.due_date && <span className="text-[10px] text-muted-foreground">{new Date(task.due_date).toLocaleDateString("pt-BR")}</span>}
+                {task.due_date && <span className="text-[10px] text-t3">{new Date(task.due_date).toLocaleDateString("pt-BR")}</span>}
               </div>
             </div>
           </div>
@@ -108,11 +107,17 @@ export default function TasksPage() {
   if (isLoading) return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Equipe & Tarefas" description="Kanban de tarefas do time" actions={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4 mr-2" />Nova Tarefa</Button>} />
+    <div className="space-y-6 animate-fade-up">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-t1">Equipe & Tarefas</h1>
+          <p className="text-sm text-t3">Kanban de tarefas do time</p>
+        </div>
+        <Button onClick={() => setCreating(true)}><Plus className="h-4 w-4 mr-2" />Nova Tarefa</Button>
+      </div>
 
       {creating && (
-        <Card className="surface-glow border-primary/30">
+        <Card className="border-primary/30">
           <CardContent className="p-4 flex items-end gap-3">
             <div className="flex-1 space-y-2"><Label>Título</Label><Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Descreva a tarefa..." /></div>
             <Button onClick={handleCreate} disabled={!newTitle.trim()}>Criar</Button>
@@ -135,7 +140,7 @@ export default function TasksPage() {
                 </div>
                 <DroppableColumn columnId={col.id}>
                   {colTasks.map((task: any) => <DraggableTaskCard key={task.id} task={task} />)}
-                  {colTasks.length === 0 && <div className="py-8 text-center text-xs text-muted-foreground border border-dashed rounded-lg">Arraste tarefas aqui</div>}
+                  {colTasks.length === 0 && <div className="py-8 text-center text-xs text-t3 border border-dashed rounded-lg">Arraste tarefas aqui</div>}
                 </DroppableColumn>
               </div>
             );

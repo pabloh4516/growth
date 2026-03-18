@@ -3,65 +3,66 @@
 @tailwind utilities;
 
 @layer base {
+  /* MarketOS Dark-Only Design System */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 4%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 4%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 4%;
-    --primary: 258 58% 64%;
+    /* Backgrounds — MarketOS palette */
+    --background: 240 24% 4%;       /* #09090E */
+    --foreground: 244 35% 95%;      /* #EEEEF8 */
+    --card: 240 22% 7%;             /* #0F0F17 */
+    --card-foreground: 244 35% 95%; /* #EEEEF8 */
+    --popover: 240 20% 10%;         /* #14141E */
+    --popover-foreground: 244 35% 95%;
+    --primary: 247 100% 75%;        /* #8B7FFF */
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 6% 10%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 240 5% 96%;
-    --accent-foreground: 240 6% 10%;
-    --destructive: 0 72% 65%;
+    --secondary: 240 20% 10%;       /* #14141E */
+    --secondary-foreground: 244 35% 95%;
+    --muted: 240 18% 13%;           /* #1A1A27 */
+    --muted-foreground: 244 14% 50%; /* #50506A */
+    --accent: 240 18% 13%;          /* #1A1A27 */
+    --accent-foreground: 244 35% 95%;
+    --destructive: 349 100% 63%;    /* #FF4466 */
     --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 258 58% 64%;
-    --radius: 0.75rem;
-    --success: 145 65% 42%;
-    --warning: 38 92% 50%;
-    --info: 221 83% 53%;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 6% 10%;
-    --sidebar-border: 240 6% 90%;
-    --sidebar-accent: 240 5% 96%;
-    --sidebar-accent-foreground: 240 6% 10%;
-  }
+    --border: 0 0% 100% / 0.055;
+    --input: 0 0% 100% / 0.10;
+    --ring: 247 100% 75%;           /* #8B7FFF */
+    --radius: 0.875rem;             /* 14px — MarketOS cards */
+    --success: 155 70% 51%;         /* #29D98A */
+    --warning: 38 95% 48%;          /* #F5A000 */
+    --info: 218 100% 69%;           /* #5B9EFF */
 
-  .dark {
-    --background: 240 20% 4%;
-    --foreground: 240 10% 96%;
-    --card: 240 17% 6%;
-    --card-foreground: 240 10% 96%;
-    --popover: 240 17% 6%;
-    --popover-foreground: 240 10% 96%;
-    --primary: 258 58% 64%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 12% 12%;
-    --secondary-foreground: 240 10% 96%;
-    --muted: 240 12% 12%;
-    --muted-foreground: 240 5% 60%;
-    --accent: 240 12% 16%;
-    --accent-foreground: 240 10% 96%;
-    --destructive: 0 72% 65%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 240 10% 18%;
-    --input: 240 10% 18%;
-    --ring: 258 58% 64%;
-    --success: 145 65% 42%;
-    --warning: 38 92% 50%;
-    --info: 221 83% 53%;
-    --sidebar-background: 240 20% 5%;
-    --sidebar-foreground: 240 5% 60%;
-    --sidebar-border: 240 10% 14%;
-    --sidebar-accent: 240 12% 10%;
-    --sidebar-accent-foreground: 240 10% 96%;
+    /* Surfaces — MarketOS levels */
+    --s1: 240 22% 7%;               /* #0F0F17 */
+    --s2: 240 20% 10%;              /* #14141E */
+    --s3: 240 18% 13%;              /* #1A1A27 */
+    --s4: 240 16% 16%;              /* #21212F */
+    --border2: 0 0% 100% / 0.10;
+
+    /* Text hierarchy — MarketOS */
+    --t1: 244 35% 95%;              /* #EEEEF8 */
+    --t2: 244 14% 63%;              /* #9090B0 */
+    --t3: 244 14% 37%;              /* #50506A */
+    --t4: 240 14% 22%;              /* #30303F */
+
+    /* Platform colors */
+    --google: 217 89% 61%;          /* #4285F4 */
+    --tiktok: 345 100% 59%;         /* #FF2D55 */
+
+    /* Purple variants */
+    --purple-dim: 247 100% 75% / 0.12;
+    --purple-glow: 247 100% 75% / 0.25;
+    --green-dim: 155 70% 51% / 0.10;
+    --red-dim: 349 100% 63% / 0.10;
+    --amber-dim: 38 95% 48% / 0.10;
+    --blue-dim: 218 100% 69% / 0.10;
+    --google-dim: 217 89% 61% / 0.10;
+    --tiktok-dim: 345 100% 59% / 0.10;
+
+    /* Sidebar */
+    --sidebar-background: 240 22% 7%;    /* same as s1 */
+    --sidebar-foreground: 244 14% 63%;   /* t2 */
+    --sidebar-border: 0 0% 100% / 0.055;
+    --sidebar-accent: 247 100% 75% / 0.12; /* purple-dim */
+    --sidebar-accent-foreground: 247 100% 75%;
   }
 }
 
@@ -71,6 +72,24 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+    /* iPhone safe areas (Dynamic Island, home indicator) */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  /* Prevent iOS zoom on input focus — min 16px */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  @media (min-width: 768px) {
+    input, select, textarea {
+      font-size: inherit !important;
+    }
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
@@ -80,38 +99,119 @@
 @layer utilities {
   .text-gradient-primary {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, #6C5CE7, #00D2FF);
+    background-image: linear-gradient(135deg, #8B7FFF, #5B9EFF);
   }
 
+  /* Surface glow — MarketOS card style */
   .surface-glow {
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid hsl(var(--border));
+  }
+  .surface-glow:hover {
+    border-color: hsl(var(--border2));
   }
 
   .surface-glow-hover {
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 0 4px rgba(108, 92, 231, 0.1);
+    border: 1px solid hsl(var(--border2));
+    box-shadow: 0 0 4px hsl(var(--purple-glow));
   }
 
+  /* Scrollbar — thin like MarketOS */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--border)) transparent;
+    scrollbar-color: hsl(var(--s4)) transparent;
   }
-
   .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 3px;
+    height: 3px;
   }
-
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
-
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-    border-radius: 3px;
+    background: hsl(var(--s4));
+    border-radius: 2px;
   }
 
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Gauge colors */
   .gauge-green { color: hsl(var(--success)); }
   .gauge-yellow { color: hsl(var(--warning)); }
   .gauge-red { color: hsl(var(--destructive)); }
+
+  /* MarketOS glow effects */
+  .glow-primary {
+    box-shadow: 0 4px 14px hsl(var(--purple-glow));
+  }
+  .glow-success {
+    box-shadow: 0 0 7px hsl(var(--success));
+  }
+
+  /* MarketOS gradient top bar on cards */
+  .gradient-bar-purple::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, hsl(var(--primary)), transparent);
+  }
+  .gradient-bar-green::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, hsl(var(--success)), transparent);
+  }
+  .gradient-bar-blue::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, hsl(var(--info)), transparent);
+  }
+  .gradient-bar-amber::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, hsl(var(--warning)), transparent);
+  }
+
+  /* MarketOS animations */
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-up {
+    animation: fade-up 0.3s ease both;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .animate-pulse-dot {
+    animation: pulse-dot 2s infinite;
+  }
+
+  @keyframes blink {
+    0%, 80%, 100% { opacity: 0.2; }
+    40% { opacity: 1; }
+  }
+  .animate-blink {
+    animation: blink 1.2s infinite;
+  }
 }

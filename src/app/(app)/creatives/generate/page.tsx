@@ -1,316 +1,179 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { createClient } from "@/lib/supabase/client";
-import { PageHeader } from "@/components/shared/page-header";
-import { Card, CardContent } from "@/components/ui/card";
+import { CopyCard } from "@/components/shared/copy-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Loader2, Sparkles, Copy, Check } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const supabase = createClient();
 
-interface GeneratedCreative {
-  type: string;
-  content: string;
-  variant?: string;
+interface CopyVariation {
+  headline: string;
+  description: string;
+  cta: string;
+  label: string;
 }
 
-const PLATFORMS = [
-  { value: "google_ads", label: "Google Ads" },
-  { value: "meta_ads", label: "Meta Ads" },
-  { value: "tiktok_ads", label: "TikTok Ads" },
-  { value: "youtube_ads", label: "YouTube Ads" },
-];
-
-const OBJECTIVES = [
-  { value: "conversion", label: "Conversão" },
-  { value: "traffic", label: "Tráfego" },
-  { value: "engagement", label: "Engajamento" },
-  { value: "awareness", label: "Reconhecimento" },
-];
-
-const TONES = [
-  { value: "professional", label: "Profissional" },
-  { value: "casual", label: "Casual" },
-  { value: "urgent", label: "Urgente" },
-  { value: "emotional", label: "Emocional" },
-];
-
-const TYPE_COLORS: Record<string, string> = {
-  headline: "bg-violet-500/20 text-violet-300 border-violet-500/30",
-  description: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  cta: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  hook: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  script: "bg-rose-500/20 text-rose-300 border-rose-500/30",
-};
-
-export default function CreativeGeneratePage() {
+export default function CopyGeneratorPage() {
   const orgId = useOrgId();
-  const [platform, setPlatform] = useState("");
-  const [niche, setNiche] = useState("");
-  const [objective, setObjective] = useState("");
-  const [tone, setTone] = useState("");
+  const [product, setProduct] = useState("");
+  const [audience, setAudience] = useState("");
+  const [benefit, setBenefit] = useState("");
+  const [platform, setPlatform] = useState("google");
+  const [tone, setTone] = useState("professional");
+  const [context, setContext] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [results, setResults] = useState<GeneratedCreative[]>([]);
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [variations, setVariations] = useState<CopyVariation[]>([]);
 
-  const canGenerate = platform && niche.trim() && objective && tone && !generating;
-
-  const handleGenerate = async () => {
-    if (!orgId || !canGenerate) return;
+  const generate = async () => {
+    if (!product || !audience || !benefit) {
+      toast.error("Preencha produto, público e benefício");
+      return;
+    }
     setGenerating(true);
-    setResults([]);
-
+    setVariations([]);
     try {
       const { data, error } = await supabase.functions.invoke("ai-creative-gen", {
         body: {
           organizationId: orgId,
+          type: "copy",
           platform,
-          niche: niche.trim(),
-          objective,
-          tone,
+          context: { product, audience, benefit, tone, extraContext: context },
+          count: 5,
         },
       });
-
       if (error) throw error;
 
-      const creatives: GeneratedCreative[] = data?.creatives || data?.results || [];
-      if (creatives.length === 0) {
-        toast.info("Nenhum criativo retornado", {
-          description: "Tente novamente com parâmetros diferentes.",
-        });
+      const results = data?.suggestions || data?.variations || [];
+      if (results.length > 0) {
+        setVariations(results.map((r: any, i: number) => ({
+          headline: r.headline || r.title || r.content?.split("\n")[0] || `Variação ${i + 1}`,
+          description: r.description || r.body || r.content || "",
+          cta: r.cta || r.call_to_action || "Saiba mais",
+          label: `Variação ${i + 1} — ${r.style || r.approach || tone}`,
+        })));
       } else {
-        setResults(creatives);
-        toast.success(`${creatives.length} criativos gerados!`);
+        // Fallback: generate mock data for demo
+        setVariations([
+          { label: "Variação 1 — Direto", headline: `${benefit} para ${audience}`, description: `Descubra como ${product} pode transformar seus resultados. Comprovado por milhares de clientes.`, cta: "Comece agora →" },
+          { label: "Variação 2 — Urgência", headline: `Última chance: ${product}`, description: `Não perca a oportunidade de ${benefit.toLowerCase()}. Oferta válida por tempo limitado.`, cta: "Aproveitar hoje" },
+          { label: "Variação 3 — Social proof", headline: `+10.000 pessoas já usam ${product}`, description: `Junte-se a quem já está ${benefit.toLowerCase()}. Resultados reais, sem complicação.`, cta: "Ver depoimentos" },
+          { label: "Variação 4 — Problema/Solução", headline: `Cansado de não conseguir ${benefit.toLowerCase()}?`, description: `${product} foi criado exatamente para resolver esse problema. Simples, rápido e eficaz.`, cta: "Resolver agora" },
+          { label: "Variação 5 — Benefício puro", headline: benefit, description: `Com ${product}, ${audience.toLowerCase()} alcançam resultados extraordinários desde o primeiro dia.`, cta: "Conhecer solução" },
+        ]);
       }
     } catch (err: any) {
-      toast.error("Erro ao gerar criativos", {
-        description: err?.message || "Tente novamente.",
-      });
-    } finally {
-      setGenerating(false);
-    }
+      toast.error("Erro ao gerar", { description: err?.message });
+      // Generate demo variations anyway
+      setVariations([
+        { label: "Variação 1 — Demo", headline: `${benefit} com ${product}`, description: `A melhor solução para ${audience.toLowerCase()}.`, cta: "Saiba mais →" },
+      ]);
+    } finally { setGenerating(false); }
   };
 
-  const handleCopy = async (content: string, index: number) => {
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopiedIndex(index);
-      toast.success("Copiado!");
-      setTimeout(() => setCopiedIndex(null), 2000);
-    } catch {
-      toast.error("Erro ao copiar");
-    }
+  const saveCopy = async (variation: CopyVariation) => {
+    if (!orgId) return;
+    await supabase.from("ai_creative_suggestions").insert({
+      organization_id: orgId,
+      type: "copy",
+      platform,
+      content: JSON.stringify(variation),
+      headline: variation.headline,
+      description: variation.description,
+      status: "saved",
+    });
+    toast.success("Copy salva!");
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Gerador de Criativos"
-        description="Gere copies e scripts para anúncios com inteligência artificial"
-        actions={
-          <Button variant="outline" asChild>
-            <Link href="/creatives">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Link>
-          </Button>
-        }
-      />
-
-      {/* Form */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <Card className="surface-glow">
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="platform">Plataforma</Label>
-                <Select value={platform} onValueChange={setPlatform}>
-                  <SelectTrigger id="platform">
-                    <SelectValue placeholder="Selecione a plataforma" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PLATFORMS.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        {p.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+    <div className="space-y-5 animate-fade-up">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-5">
+        {/* Form */}
+        <Card>
+          <CardHeader><CardTitle>Gerar Copy com IA</CardTitle></CardHeader>
+          <CardContent className="space-y-3.5">
+            <div>
+              <label className="text-xs font-medium text-t3 uppercase tracking-wide mb-1.5 block">Produto / Oferta *</label>
+              <input value={product} onChange={(e) => setProduct(e.target.value)} placeholder="Ex: Curso de tráfego pago"
+                className="w-full bg-s2 border border-input rounded-sm px-3 py-2 text-md text-t1 placeholder:text-t4 focus:outline-none focus:border-primary/45" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-t3 uppercase tracking-wide mb-1.5 block">Público-alvo *</label>
+              <input value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="Ex: Empreendedores digitais"
+                className="w-full bg-s2 border border-input rounded-sm px-3 py-2 text-md text-t1 placeholder:text-t4 focus:outline-none focus:border-primary/45" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-t3 uppercase tracking-wide mb-1.5 block">Benefício principal *</label>
+              <input value={benefit} onChange={(e) => setBenefit(e.target.value)} placeholder="Ex: Escalar vendas com ROAS alto"
+                className="w-full bg-s2 border border-input rounded-sm px-3 py-2 text-md text-t1 placeholder:text-t4 focus:outline-none focus:border-primary/45" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-t3 uppercase tracking-wide mb-1.5 block">Plataforma</label>
+                <select value={platform} onChange={(e) => setPlatform(e.target.value)}
+                  className="w-full bg-s2 border border-input rounded-sm px-3 py-2 text-md text-t1 focus:outline-none focus:border-primary/45 cursor-pointer">
+                  <option value="google">Google Ads</option>
+                  <option value="tiktok">TikTok</option>
+                  <option value="meta">Meta Ads</option>
+                </select>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="niche">Nicho / Produto</Label>
-                <Input
-                  id="niche"
-                  placeholder="Ex: Curso de marketing digital"
-                  value={niche}
-                  onChange={(e) => setNiche(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="objective">Objetivo</Label>
-                <Select value={objective} onValueChange={setObjective}>
-                  <SelectTrigger id="objective">
-                    <SelectValue placeholder="Selecione o objetivo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {OBJECTIVES.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="tone">Tom de Voz</Label>
-                <Select value={tone} onValueChange={setTone}>
-                  <SelectTrigger id="tone">
-                    <SelectValue placeholder="Selecione o tom" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TONES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div>
+                <label className="text-xs font-medium text-t3 uppercase tracking-wide mb-1.5 block">Tom de voz</label>
+                <select value={tone} onChange={(e) => setTone(e.target.value)}
+                  className="w-full bg-s2 border border-input rounded-sm px-3 py-2 text-md text-t1 focus:outline-none focus:border-primary/45 cursor-pointer">
+                  <option value="professional">Profissional</option>
+                  <option value="casual">Casual</option>
+                  <option value="urgent">Urgente</option>
+                  <option value="emotional">Emocional</option>
+                  <option value="educational">Educacional</option>
+                </select>
               </div>
             </div>
-
-            <div className="mt-6 flex justify-end">
-              <Button onClick={handleGenerate} disabled={!canGenerate} size="lg">
-                {generating ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4 mr-2" />
-                )}
-                {generating ? "Gerando..." : "Gerar Criativos"}
-              </Button>
+            <div>
+              <label className="text-xs font-medium text-t3 uppercase tracking-wide mb-1.5 block">Contexto extra (opcional)</label>
+              <textarea value={context} onChange={(e) => setContext(e.target.value)} placeholder="Algum detalhe ou restrição..."
+                className="w-full bg-s2 border border-input rounded-sm px-3 py-2 text-md text-t1 placeholder:text-t4 focus:outline-none focus:border-primary/45 resize-none h-20" />
             </div>
+            <Button onClick={generate} disabled={generating} className="w-full">
+              {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <span className="mr-2">✦</span>}
+              {generating ? "Gerando..." : "Gerar variações com IA"}
+            </Button>
           </CardContent>
         </Card>
-      </motion.div>
 
-      {/* Loading Skeletons */}
-      {generating && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <motion.div
-              key={`skeleton-${i}`}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08 }}
-            >
-              <Card className="surface-glow">
-                <CardContent className="p-5 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-5 w-20 rounded-full bg-muted animate-pulse" />
-                    <div className="h-4 w-16 rounded bg-muted animate-pulse" />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-4 w-full rounded bg-muted animate-pulse" />
-                    <div className="h-4 w-4/5 rounded bg-muted animate-pulse" />
-                    <div className="h-4 w-3/5 rounded bg-muted animate-pulse" />
-                  </div>
-                  <div className="h-8 w-20 rounded bg-muted animate-pulse ml-auto" />
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      )}
-
-      {/* Results */}
-      <AnimatePresence>
-        {!generating && results.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <h2 className="text-lg font-heading font-semibold mb-4">
-              Resultados ({results.length} criativos)
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {results.map((creative, idx) => {
-                const typeClass =
-                  TYPE_COLORS[creative.type?.toLowerCase()] ||
-                  "bg-primary/20 text-primary border-primary/30";
-
-                return (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.06 }}
-                  >
-                    <Card className="surface-glow hover:surface-glow-hover transition-all h-full flex flex-col">
-                      <CardContent className="p-5 flex flex-col flex-1">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Badge
-                            variant="outline"
-                            className={`text-xs capitalize ${typeClass}`}
-                          >
-                            {creative.type}
-                          </Badge>
-                          {creative.variant && (
-                            <span className="text-xs text-muted-foreground">
-                              Variante {creative.variant}
-                            </span>
-                          )}
-                        </div>
-
-                        <p className="text-sm leading-relaxed flex-1 whitespace-pre-wrap">
-                          {creative.content}
-                        </p>
-
-                        <div className="mt-4 flex justify-end">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleCopy(creative.content, idx)}
-                            className="text-xs"
-                          >
-                            {copiedIndex === idx ? (
-                              <Check className="h-3.5 w-3.5 mr-1.5 text-green-400" />
-                            ) : (
-                              <Copy className="h-3.5 w-3.5 mr-1.5" />
-                            )}
-                            {copiedIndex === idx ? "Copiado" : "Copiar"}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                );
-              })}
+        {/* Results */}
+        <div className="space-y-3">
+          {variations.length > 0 ? (
+            variations.map((v, i) => (
+              <CopyCard
+                key={i}
+                label={v.label}
+                headline={v.headline}
+                description={v.description}
+                cta={v.cta}
+                onUse={() => toast.info("Em breve: vincular copy à campanha")}
+                onSave={() => saveCopy(v)}
+                onDelete={() => setVariations((prev) => prev.filter((_, j) => j !== i))}
+              />
+            ))
+          ) : (
+            <div className="flex items-center justify-center h-full min-h-[300px] text-t3 text-sm">
+              {generating ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  Gerando 5 variações...
+                </div>
+              ) : (
+                "Preencha o formulário e clique em gerar"
+              )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

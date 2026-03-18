@@ -7,7 +7,6 @@ import { useOrgId } from "@/lib/hooks/use-org";
 import { usePeriodStore } from "@/lib/hooks/use-period";
 import { createClient } from "@/lib/supabase/client";
 import { formatBRL } from "@/lib/utils";
-import { PageHeader } from "@/components/shared/page-header";
 import { KPICard } from "@/components/shared/kpi-card";
 import { DataTable } from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -96,17 +95,17 @@ export default function FinancialPage() {
   const effectiveAdSpend = adSpend || (metrics?.cost ?? 0);
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Financeiro"
-        description="Receitas, custos e lucratividade"
-        actions={
-          <Button onClick={() => setCreating(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Registro
-          </Button>
-        }
-      />
+    <div className="space-y-6 animate-fade-up">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-heading font-bold text-t1">Financeiro</h1>
+          <p className="text-sm text-t3 mt-1">Receitas, custos e lucratividade</p>
+        </div>
+        <Button onClick={() => setCreating(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Novo Registro
+        </Button>
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KPICard title="Receita Total" value={formatBRL(revenue)} delay={0} icon={<TrendingUp className="h-4 w-4" />} />
@@ -116,7 +115,7 @@ export default function FinancialPage() {
       </div>
 
       {creating && (
-        <Card className="surface-glow border-primary/30">
+        <Card className="border-primary/30">
           <CardContent className="p-4 space-y-3">
             <h3 className="text-sm font-semibold">Novo Registro Financeiro</h3>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

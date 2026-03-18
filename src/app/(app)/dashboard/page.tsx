@@ -1,29 +1,22 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
-import { useQuery } from "@tanstack/react-query";
-import { useDashboardMetrics, useTopCampaigns, useWorstCampaigns, useInsights } from "@/lib/hooks/use-supabase-data";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useDashboardMetrics, useTopCampaigns, useInsights, useContacts } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { usePeriodStore } from "@/lib/hooks/use-period";
 import { createClient } from "@/lib/supabase/client";
-import { formatBRL, formatCompact, formatNumber } from "@/lib/utils";
-import { PageHeader } from "@/components/shared/page-header";
-import { KPICard } from "@/components/shared/kpi-card";
-import { HealthGauge } from "@/components/shared/health-gauge";
-import { InsightCard } from "@/components/shared/insight-card";
-import { StatusBadge } from "@/components/shared/status-badge";
-import { PlatformIcon } from "@/components/shared/platform-icon";
-import { CurrencyDisplay } from "@/components/shared/currency-display";
+import { formatBRL, formatCompact } from "@/lib/utils";
+import { MetricCard } from "@/components/shared/metric-card";
+import { AgentFeedItem } from "@/components/shared/agent-feed-item";
+import { StatusPill } from "@/components/shared/status-pill";
+import { RoasValue } from "@/components/shared/roas-value";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  Eye, MousePointerClick, DollarSign, ShoppingCart, TrendingUp, Target, Brain, RefreshCw, Loader2,
-  CheckCircle, Clock, Ban, Link2, AlertTriangle,
-} from "lucide-react";
-import { motion } from "framer-motion";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Loader2 } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 const supabase = createClient();
+
+/* ── Hooks ── */
 
 function useSalesFromCheckout(days: number) {
   const orgId = useOrgId();
@@ -31,374 +24,329 @@ function useSalesFromCheckout(days: number) {
     queryKey: ["checkout-sales", orgId, days],
     queryFn: async () => {
       const dateFrom = new Date();
-      if (days <= 1) {
-        dateFrom.setHours(0, 0, 0, 0);
-      } else {
-        dateFrom.setDate(dateFrom.getDate() - days);
-      }
-
-      const { data, error } = await supabase
+      if (days <= 1) { dateFrom.setHours(0, 0, 0, 0); } else { dateFrom.setDate(dateFrom.getDate() - days); }
+      const { data } = await supabase
         .from("utmify_sales")
         .select("status, revenue, matched_campaign_id, sale_date")
         .eq("organization_id", orgId!)
         .gte("sale_date", dateFrom.toISOString());
-
-      if (error) throw error;
-      if (!data) return { paid: 0, paidRevenue: 0, pending: 0, pendingRevenue: 0, refunded: 0, total: 0, matched: 0, dailyRevenue: [] as { date: string; realRevenue: number }[] };
-
+      if (!data) return { paid: 0, paidRevenue: 0, pending: 0, total: 0, matched: 0, dailyCost: [] as { date: string; cost: number }[] };
       const paid = data.filter((s) => s.status === "paid");
-      const pending = data.filter((s) => s.status === "waiting_payment");
-      const refunded = data.filter((s) => s.status === "refunded" || s.status === "chargedback");
-      const matched = data.filter((s) => s.matched_campaign_id);
-
-      // Aggregate daily revenue for chart
-      const revenueByDay: Record<string, number> = {};
-      paid.forEach((s) => {
-        const day = s.sale_date ? new Date(s.sale_date).toISOString().split("T")[0] : null;
-        if (day) {
-          revenueByDay[day] = (revenueByDay[day] || 0) + Number(s.revenue || 0);
-        }
-      });
-
-      const dailyRevenue = Object.entries(revenueByDay)
-        .map(([date, realRevenue]) => ({ date, realRevenue }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-
       return {
         paid: paid.length,
         paidRevenue: paid.reduce((sum, s) => sum + Number(s.revenue || 0), 0),
-        pending: pending.length,
-        pendingRevenue: pending.reduce((sum, s) => sum + Number(s.revenue || 0), 0),
-        refunded: refunded.length,
+        pending: data.filter((s) => s.status === "waiting_payment").length,
         total: data.length,
-        matched: matched.length,
-        dailyRevenue,
+        matched: data.filter((s) => s.matched_campaign_id).length,
+        dailyCost: [],
       };
     },
     enabled: !!orgId,
-    refetchInterval: 30 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
 }
 
-function useHealthScore() {
+function useAIDecisions() {
   const orgId = useOrgId();
   return useQuery({
-    queryKey: ["health-score", orgId],
+    queryKey: ["ai-decisions", orgId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("campaigns")
-        .select("real_roas, ctr, real_cpa, status")
+        .from("ai_decisions")
+        .select("*")
         .eq("organization_id", orgId!)
-        .eq("status", "active");
-      if (!data || data.length === 0) return 0;
-      const avgRoas = data.reduce((s, c) => s + (c.real_roas || 0), 0) / data.length;
-      const avgCtr = data.reduce((s, c) => s + (c.ctr || 0), 0) / data.length;
-      const roasScore = Math.min(avgRoas / 3, 1) * 40;
-      const ctrScore = Math.min(avgCtr / 5, 1) * 30;
-      const activeScore = Math.min(data.length / 5, 1) * 30;
-      return Math.round(roasScore + ctrScore + activeScore);
+        .order("created_at", { ascending: false })
+        .limit(5);
+      return data || [];
     },
     enabled: !!orgId,
+    refetchInterval: 5 * 60 * 1000,
   });
 }
 
-function calcChange(daily: any[], field: string): number {
-  if (!daily || daily.length < 2) return 0;
-  const mid = Math.floor(daily.length / 2);
-  const firstHalf = daily.slice(0, mid).reduce((s: number, d: any) => s + (d[field] || 0), 0);
-  const secondHalf = daily.slice(mid).reduce((s: number, d: any) => s + (d[field] || 0), 0);
-  if (firstHalf === 0) return secondHalf > 0 ? 100 : 0;
-  return ((secondHalf - firstHalf) / firstHalf) * 100;
-}
-
-function calcCpaChange(daily: any[]): number {
-  if (!daily || daily.length < 2) return 0;
-  const mid = Math.floor(daily.length / 2);
-  const firstHalf = daily.slice(0, mid);
-  const secondHalf = daily.slice(mid);
-  const costFirst = firstHalf.reduce((s: number, d: any) => s + (d.cost || 0), 0);
-  const convFirst = firstHalf.reduce((s: number, d: any) => s + (d.conversions || 0), 0);
-  const costSecond = secondHalf.reduce((s: number, d: any) => s + (d.cost || 0), 0);
-  const convSecond = secondHalf.reduce((s: number, d: any) => s + (d.conversions || 0), 0);
-  const cpaFirst = convFirst > 0 ? costFirst / convFirst : 0;
-  const cpaSecond = convSecond > 0 ? costSecond / convSecond : 0;
-  if (cpaFirst === 0) return cpaSecond > 0 ? 100 : 0;
-  return ((cpaSecond - cpaFirst) / cpaFirst) * 100;
-}
+/* ── Page ── */
 
 export default function DashboardPage() {
-  const orgId = useOrgId();
   const { days } = usePeriodStore();
   const queryClient = useQueryClient();
-  const { data: metrics, isLoading: metricsLoading } = useDashboardMetrics(days);
-  const { data: topCampaigns, isLoading: campaignsLoading } = useTopCampaigns(5, days);
-  const { data: worstCampaigns, isLoading: worstLoading } = useWorstCampaigns(5);
-  const { data: insights, isLoading: insightsLoading } = useInsights();
-  const { data: healthScore } = useHealthScore();
+  const { data: metrics, isLoading } = useDashboardMetrics(days);
+  const { data: topCampaigns } = useTopCampaigns(5, days);
   const { data: salesData } = useSalesFromCheckout(days);
+  const { data: insights } = useInsights();
+  const { data: aiDecisions } = useAIDecisions();
+  const { data: contacts } = useContacts();
 
-  // Merge daily data: cost from Google Ads + real revenue from checkout
-  const dailyData = (() => {
-    const googleDaily = metrics?.daily || [];
-    const salesDaily = salesData?.dailyRevenue || [];
-
-    const salesMap: Record<string, number> = {};
-    salesDaily.forEach((d) => { salesMap[d.date] = d.realRevenue; });
-
-    return googleDaily.map((d: any) => ({
-      date: new Date(d.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
-      cost: d.cost || 0,
-      realRevenue: salesMap[d.date] || 0,
-      clicks: d.clicks || 0,
-      impressions: d.impressions || 0,
-    })) as { date: string; cost: number; realRevenue: number; clicks: number; impressions: number }[];
-  })();
-
-  const sparkCost = dailyData.map((d) => d.cost);
-  const sparkClicks = dailyData.map((d) => d.clicks);
-  const sparkImpressions = dailyData.map((d) => d.impressions);
-
-  const changeImpressions = calcChange(metrics?.daily, "impressions");
-  const changeClicks = calcChange(metrics?.daily, "clicks");
-  const changeCost = calcChange(metrics?.daily, "cost");
-  const changeCPA = calcCpaChange(metrics?.daily);
-
-  // Derived real metrics
   const totalCost = metrics?.cost ?? 0;
   const realRevenue = salesData?.paidRevenue ?? 0;
-  const realSales = salesData?.paid ?? 0;
   const realRoas = totalCost > 0 ? realRevenue / totalCost : 0;
-  const ctr = metrics?.ctr ?? 0;
-  const cpaGoogle = metrics?.cpa ?? 0;
+  const leads = metrics?.conversions ?? 0;
 
-  // Match rate
-  const matchRate = salesData && salesData.total > 0 ? (salesData.matched / salesData.total) * 100 : 0;
-  const unmatchedCount = salesData ? salesData.total - salesData.matched : 0;
+  // Build daily chart data merging cost + revenue
+  const salesByDay: Record<string, number> = {};
+  if (salesData?.paid) {
+    // salesData doesn't have dailyRevenue anymore, so we use totals
+  }
 
-  if (metricsLoading) {
+  const dailyChart = (metrics?.daily || []).map((d: any) => ({
+    day: new Date(d.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
+    investimento: d.cost || 0,
+    receita: d.revenue || 0,
+    cliques: d.clicks || 0,
+  }));
+
+  // Pipeline leads
+  const pipelineLeads = (contacts || [])
+    .filter((c: any) => c.lead_score > 0)
+    .sort((a: any, b: any) => (b.lead_score || 0) - (a.lead_score || 0))
+    .slice(0, 4);
+
+  if (isLoading) {
     return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Dashboard"
-        description="Visão geral da sua operação de marketing"
-        actions={
-          <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries()}>
-            <RefreshCw className="h-3.5 w-3.5 mr-2" />
-            Atualizar
-          </Button>
-        }
-      />
+    <div className="space-y-5 animate-fade-up">
 
-      {/* KPIs Principais — vendas reais */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KPICard title="Investimento" subtitle="Google Ads" value={formatBRL(totalCost)} change={changeCost} sparkData={sparkCost.slice(-10)} delay={0} icon={<DollarSign className="h-4 w-4" />} />
-        <KPICard title="Vendas Reais" subtitle="Checkout" value={formatNumber(realSales)} delay={1} icon={<ShoppingCart className="h-4 w-4" />} />
-        <KPICard title="Receita Real" subtitle="Checkout" value={formatBRL(realRevenue)} delay={2} icon={<TrendingUp className="h-4 w-4" />} />
-        <KPICard title="ROAS Real" subtitle="Receita / Investimento" value={`${realRoas.toFixed(2)}x`} delay={3} icon={<Target className="h-4 w-4" />} />
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <MetricCard
+          label="Investimento total"
+          value={formatBRL(totalCost)}
+          delta={metrics?.daily?.length > 1 ? `${((metrics.daily[metrics.daily.length-1]?.cost || 0) > (metrics.daily[0]?.cost || 0) ? "+" : "")}${(((metrics.daily[metrics.daily.length-1]?.cost || 0) - (metrics.daily[0]?.cost || 0)) / ((metrics.daily[0]?.cost || 1)) * 100).toFixed(1)}%` : undefined}
+          deltaType={metrics?.daily?.length > 1 && (metrics.daily[metrics.daily.length-1]?.cost || 0) >= (metrics.daily[0]?.cost || 0) ? "up" : "down"}
+          gradient="purple"
+        />
+        <MetricCard
+          label="Receita atribuída"
+          value={formatBRL(realRevenue)}
+          delta={undefined}
+          deltaType="up"
+          gradient="green"
+        />
+        <MetricCard
+          label="ROAS"
+          value={`${realRoas.toFixed(1)}x`}
+          delta={undefined}
+          deltaType="up"
+          gradient="blue"
+        />
+        <MetricCard
+          label="Leads gerados"
+          value={formatCompact(leads)}
+          delta={undefined}
+          deltaType="up"
+          gradient="amber"
+        />
       </div>
 
-      {/* KPIs Secundários — Google Ads */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KPICard title="Impressões" subtitle="Google Ads" value={formatCompact(metrics?.impressions ?? 0)} change={changeImpressions} sparkData={sparkImpressions.slice(-10)} delay={4} icon={<Eye className="h-4 w-4" />} size="sm" />
-        <KPICard title="Cliques" subtitle="Google Ads" value={formatCompact(metrics?.clicks ?? 0)} change={changeClicks} sparkData={sparkClicks.slice(-10)} delay={5} icon={<MousePointerClick className="h-4 w-4" />} size="sm" />
-        <KPICard title="CTR" subtitle="Google Ads" value={`${ctr.toFixed(2)}%`} delay={6} icon={<TrendingUp className="h-4 w-4" />} size="sm" />
-        <KPICard title="CPA Google" subtitle="Google Ads" value={formatBRL(cpaGoogle)} change={changeCPA * -1} delay={7} icon={<Target className="h-4 w-4" />} size="sm" />
-      </div>
+      {/* ── Row: Chart + Agent Feed ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.55fr_1fr] gap-3">
 
-      {/* Vendas do Checkout — melhorado com match rate */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}>
-        <Card className="surface-glow border-primary/10">
-          <CardHeader className="pb-3">
+        {/* Bar chart — Investimento diário */}
+        <Card>
+          <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-heading">Vendas do Checkout</CardTitle>
-              <div className="flex items-center gap-2">
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${matchRate >= 80 ? "bg-success/10 text-success" : matchRate >= 60 ? "bg-warning/10 text-warning" : "bg-destructive/10 text-destructive"}`}>
-                  Match: {matchRate.toFixed(0)}%
-                </span>
-              </div>
+              <CardTitle>Investimento vs Receita</CardTitle>
+              <span className="text-sm text-t3 cursor-pointer hover:text-primary transition-colors" onClick={() => queryClient.invalidateQueries()}>
+                Atualizar
+              </span>
             </div>
-            {matchRate < 80 && unmatchedCount > 0 && (
-              <div className="flex items-center gap-2 mt-2 text-xs text-warning bg-warning/5 px-3 py-1.5 rounded-md">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                <span>{unmatchedCount} venda{unmatchedCount > 1 ? "s" : ""} sem vínculo com campanha</span>
-              </div>
-            )}
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <CheckCircle className="h-3.5 w-3.5 text-success" />
-                  Pagas
-                </div>
-                <p className="text-2xl font-heading font-bold">{salesData?.paid ?? 0}</p>
-                <p className="text-xs font-mono text-success">{formatBRL(salesData?.paidRevenue ?? 0)}</p>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5 text-warning" />
-                  Pendentes
-                </div>
-                <p className="text-2xl font-heading font-bold">{salesData?.pending ?? 0}</p>
-                <p className="text-xs font-mono text-warning">{formatBRL(salesData?.pendingRevenue ?? 0)}</p>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Ban className="h-3.5 w-3.5 text-destructive" />
-                  Reembolsos
-                </div>
-                <p className="text-2xl font-heading font-bold">{salesData?.refunded ?? 0}</p>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Link2 className="h-3.5 w-3.5 text-primary" />
-                  Vinculadas
-                </div>
-                <p className="text-2xl font-heading font-bold">{salesData?.matched ?? 0}<span className="text-sm text-muted-foreground font-normal">/{salesData?.total ?? 0}</span></p>
-                <p className="text-xs text-muted-foreground">vendas atribuídas a campanhas</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <motion.div className="lg:col-span-2" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}>
-          <Card className="surface-glow">
-            <CardHeader className="pb-2"><CardTitle className="text-base font-heading">Investimento vs Receita Real</CardTitle></CardHeader>
-            <CardContent>
-              {dailyData.length > 0 ? (
-                <div className="h-[280px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={dailyData}>
-                      <defs>
-                        <linearGradient id="gradRealRevenue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6C5CE7" stopOpacity={0.3} /><stop offset="100%" stopColor="#6C5CE7" stopOpacity={0} /></linearGradient>
-                        <linearGradient id="gradCost" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#00D2FF" stopOpacity={0.3} /><stop offset="100%" stopColor="#00D2FF" stopOpacity={0} /></linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 10% 18%)" />
-                      <XAxis dataKey="date" tick={{ fill: "hsl(240 5% 60%)", fontSize: 11 }} />
-                      <YAxis tick={{ fill: "hsl(240 5% 60%)", fontSize: 11 }} />
-                      <Tooltip contentStyle={{ backgroundColor: "hsl(240 17% 6%)", border: "1px solid hsl(240 10% 18%)", borderRadius: "8px", fontSize: "12px" }} />
-                      <Area type="monotone" dataKey="realRevenue" name="Receita Real" stroke="#6C5CE7" strokeWidth={2} fill="url(#gradRealRevenue)" />
-                      <Area type="monotone" dataKey="cost" name="Investimento" stroke="#00D2FF" strokeWidth={2} fill="url(#gradCost)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">Nenhum dado disponível para o período selecionado</div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.3 }}>
-          <Card className="surface-glow h-full">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-heading flex items-center gap-2"><Brain className="h-4 w-4 text-primary" />Saúde da Conta</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center justify-center pt-4">
-              <HealthGauge score={healthScore ?? 0} />
-              <p className="text-xs text-muted-foreground mt-4 text-center">Score calculado com base em ROAS real, CTR e campanhas ativas</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Top Performers + Precisam de Atenção */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.4 }}>
-          <Card className="surface-glow">
-            <CardHeader className="pb-3"><CardTitle className="text-base font-heading">Top Performers (ROAS Real)</CardTitle></CardHeader>
-            <CardContent>
-              {campaignsLoading ? (
-                <div className="flex items-center justify-center h-32"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-              ) : topCampaigns && topCampaigns.length > 0 ? (
-                <div className="space-y-3">
-                  {topCampaigns.map((campaign: any, idx: number) => (
-                    <div key={campaign.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors">
-                      <span className="text-xs font-mono text-muted-foreground w-5">{idx + 1}</span>
-                      <PlatformIcon platform={campaign.platform?.replace("_ads", "") || "google"} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{campaign.name}</p>
-                        <StatusBadge status={campaign.status || "active"} />
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-mono font-semibold">{(campaign.real_roas || 0).toFixed(2)}x</p>
-                        <CurrencyDisplay value={campaign.real_revenue || 0} className="text-xs text-muted-foreground" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">Nenhuma campanha com vendas reais</p>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.5 }}>
-          <Card className="surface-glow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-heading flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-warning" />
-                Precisam de Atenção
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {worstLoading ? (
-                <div className="flex items-center justify-center h-32"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-              ) : worstCampaigns && worstCampaigns.length > 0 ? (
-                <div className="space-y-3">
-                  {worstCampaigns.map((campaign: any, idx: number) => (
-                    <div key={campaign.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors">
-                      <span className="text-xs font-mono text-muted-foreground w-5">{idx + 1}</span>
-                      <PlatformIcon platform={campaign.platform?.replace("_ads", "") || "google"} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{campaign.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {campaign.real_sales_count || 0} vendas • Gasto: {formatBRL(campaign.cost || 0)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className={`text-sm font-mono font-semibold ${(campaign.real_roas || 0) < 1 ? "text-destructive" : "text-warning"}`}>
-                          {(campaign.real_roas || 0).toFixed(2)}x
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">Nenhuma campanha problemática encontrada</p>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Insights da IA */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.6 }}>
-        <Card className="surface-glow">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-heading flex items-center gap-2"><Brain className="h-4 w-4 text-primary" />Insights da IA</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {insightsLoading ? (
-              <div className="flex items-center justify-center h-32"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-            ) : insights && insights.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {insights.slice(0, 6).map((insight: any, idx: number) => (
-                  <InsightCard key={insight.id} severity={insight.severity || "info"} title={insight.title} action={insight.suggested_action} delay={idx} />
-                ))}
+            {dailyChart.length > 0 ? (
+              <div className="h-[180px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={dailyChart}>
+                    <defs>
+                      <linearGradient id="gradInvest" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#8B7FFF" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="#8B7FFF" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="gradReceita" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#29D98A" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="#29D98A" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                    <XAxis dataKey="day" tick={{ fill: "#50506A", fontSize: 9 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: "#50506A", fontSize: 9 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#14141E", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", fontSize: "12px", color: "#EEEEF8" }}
+                      formatter={(value: number, name: string) => [formatBRL(value), name === "investimento" ? "Investimento" : "Receita"]}
+                    />
+                    <Area type="monotone" dataKey="investimento" name="investimento" stroke="#8B7FFF" strokeWidth={2} fill="url(#gradInvest)" />
+                    <Area type="monotone" dataKey="receita" name="receita" stroke="#29D98A" strokeWidth={2} fill="url(#gradReceita)" />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">Nenhum insight disponível. Conecte suas contas para começar.</p>
+              <div className="h-[180px] flex items-center justify-center text-t3 text-sm">Sem dados para o período</div>
             )}
           </CardContent>
         </Card>
-      </motion.div>
+
+        {/* Agent Feed */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Agente IA</CardTitle>
+              <span className="text-sm text-t3">Últimas ações</span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-2.5">
+              {aiDecisions && aiDecisions.length > 0 ? (
+                aiDecisions.slice(0, 3).map((decision: any) => (
+                  <AgentFeedItem
+                    key={decision.id}
+                    variant={decision.status === "pending" ? "pending" : decision.status === "executed" ? "executed" : "warning"}
+                    icon={decision.status === "pending" ? "⟳" : decision.status === "executed" ? "✓" : "!"}
+                    pending={decision.status === "pending"}
+                    meta={decision.created_at ? new Date(decision.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : undefined}
+                    onApprove={async () => {
+                      await supabase.from("ai_decisions").update({ status: "approved" }).eq("id", decision.id);
+                      queryClient.invalidateQueries({ queryKey: ["ai-decisions"] });
+                    }}
+                    onReject={async () => {
+                      await supabase.from("ai_decisions").update({ status: "rejected" }).eq("id", decision.id);
+                      queryClient.invalidateQueries({ queryKey: ["ai-decisions"] });
+                    }}
+                  >
+                    <strong>{decision.action_type || "Ação"}</strong> — {decision.description || decision.reason || "Sem descrição"}
+                  </AgentFeedItem>
+                ))
+              ) : (
+                <div className="text-center text-t3 text-sm py-6">Nenhuma ação do agente ainda. Configure a IA em Insights.</div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Row: Top Campanhas + Pipeline + Inteligência ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+
+        {/* Top Campanhas — table */}
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Top campanhas</CardTitle>
+              <span className="text-sm text-t3 cursor-pointer hover:text-primary transition-colors">Ver todas →</span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <th className="text-xs font-medium text-t3 text-left pb-2.5 uppercase tracking-wide">Campanha</th>
+                  <th className="text-xs font-medium text-t3 text-left pb-2.5 uppercase tracking-wide">Status</th>
+                  <th className="text-xs font-medium text-t3 text-right pb-2.5 uppercase tracking-wide">ROAS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topCampaigns && topCampaigns.length > 0 ? (
+                  topCampaigns.slice(0, 5).map((c: any) => (
+                    <tr key={c.id} className="group">
+                      <td className="py-2.5 border-b border-border text-base font-medium text-t1 group-hover:bg-s2 transition-colors px-1">
+                        {c.name?.length > 22 ? c.name.slice(0, 22) + "…" : c.name}
+                      </td>
+                      <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
+                        <StatusPill variant={c.status === "active" ? "active" : c.status === "paused" ? "paused" : "learning"} />
+                      </td>
+                      <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
+                        <RoasValue value={c.real_roas || 0} />
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} className="py-8 text-center text-t3 text-sm">Nenhuma campanha</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+
+        {/* Pipeline */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Pipeline</CardTitle>
+              <span className="text-sm text-t3 cursor-pointer hover:text-primary transition-colors">CRM →</span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-0">
+              {pipelineLeads.length > 0 ? (
+                pipelineLeads.map((lead: any, i: number) => {
+                  const colors = ["bg-blue-dim text-info", "bg-purple-dim text-primary", "bg-green-dim text-success", "bg-amber-dim text-warning"];
+                  const initials = (lead.name || "?").split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+                  const stage = lead.lifecycle_stage || "lead";
+                  const stageMap: Record<string, { label: string; style: string }> = {
+                    customer: { label: "Quente", style: "bg-green-dim text-success" },
+                    opportunity: { label: "Morno", style: "bg-purple-dim text-primary" },
+                    lead: { label: "Frio", style: "bg-s3 text-t3" },
+                  };
+                  const stageInfo = stageMap[stage] || stageMap.lead;
+                  return (
+                    <div key={lead.id} className="flex items-center gap-2.5 py-2.5 border-b border-border last:border-b-0">
+                      <div className={`w-[30px] h-[30px] rounded-[9px] flex items-center justify-center text-[10px] font-semibold font-heading shrink-0 ${colors[i % 4]}`}>
+                        {initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-base font-medium text-t1 truncate">{lead.name}</div>
+                        <span className={`text-2xs px-1.5 py-0.5 rounded-[5px] font-medium ${stageInfo.style}`}>{stageInfo.label}</span>
+                      </div>
+                      <div className="text-base font-medium text-t2">{formatBRL(lead.deal_value || lead.lead_score * 100 || 0)}</div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center text-t3 text-sm py-8">Nenhum lead no pipeline</div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Inteligência */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Inteligência</CardTitle>
+              <span className="text-sm text-t3 cursor-pointer hover:text-primary transition-colors">Ver todos →</span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-0">
+              {insights && insights.length > 0 ? (
+                insights.slice(0, 3).map((insight: any) => {
+                  const iconMap: Record<string, { icon: string; style: string }> = {
+                    critical: { icon: "🔴", style: "bg-red-dim" },
+                    warning: { icon: "🟡", style: "bg-amber-dim" },
+                    info: { icon: "🔵", style: "bg-blue-dim" },
+                    success: { icon: "🟢", style: "bg-green-dim" },
+                  };
+                  const info = iconMap[insight.severity] || iconMap.info;
+                  return (
+                    <div key={insight.id} className="flex gap-3 py-2.5 border-b border-border last:border-b-0">
+                      <div className={`w-[30px] h-[30px] rounded-sm flex items-center justify-center text-md shrink-0 ${info.style}`}>
+                        {info.icon}
+                      </div>
+                      <div>
+                        <div className="text-base font-medium text-t1">{insight.title}</div>
+                        <div className="text-xs text-t3 mt-0.5 leading-snug">{insight.suggested_action || insight.description}</div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+              <div className="text-center text-t3 text-sm py-6">Nenhum insight disponível. Conecte suas contas para começar.</div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

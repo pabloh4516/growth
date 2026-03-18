@@ -3,10 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useOrgId } from "@/lib/hooks/use-org";
-import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowRight } from "lucide-react";
-import { motion } from "framer-motion";
 
 const supabase = createClient();
 
@@ -45,31 +43,29 @@ export default function JourneyPage() {
   }, {});
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Customer Journey" description="Diagrama de fluxo e jornadas dos seus clientes" />
-
+    <div className="space-y-6 animate-fade-up">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="surface-glow">
+        <Card>
           <CardHeader><CardTitle className="text-base font-heading">Fluxo de Jornada</CardTitle></CardHeader>
           <CardContent>
             {stageEntries.length > 0 ? (
               <div className="space-y-3">
                 {stageEntries.map(([stage, count], idx) => (
-                  <motion.div key={stage} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.1 }} className="flex items-center gap-3">
+                  <div key={stage} className="flex items-center gap-3">
                     <div className={`h-3 w-3 rounded-full ${JOURNEY_COLORS[idx % JOURNEY_COLORS.length]}`} />
                     <span className="text-sm font-medium flex-1 capitalize">{stage}</span>
-                    <span className="text-sm font-mono text-muted-foreground">{count as number} eventos</span>
-                    {idx < stageEntries.length - 1 && <ArrowRight className="h-3 w-3 text-muted-foreground" />}
-                  </motion.div>
+                    <span className="text-sm font-mono text-t3">{count as number} eventos</span>
+                    {idx < stageEntries.length - 1 && <ArrowRight className="h-3 w-3 text-t3" />}
+                  </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">Nenhum evento de funil registrado</p>
+              <p className="text-sm text-t3 text-center py-8">Nenhum evento de funil registrado</p>
             )}
           </CardContent>
         </Card>
 
-        <Card className="surface-glow">
+        <Card>
           <CardHeader><CardTitle className="text-base font-heading">Origens</CardTitle></CardHeader>
           <CardContent>
             {Object.entries(sources).length > 0 ? (
@@ -89,7 +85,7 @@ export default function JourneyPage() {
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">Sem dados de origem</p>
+              <p className="text-sm text-t3 text-center py-8">Sem dados de origem</p>
             )}
           </CardContent>
         </Card>

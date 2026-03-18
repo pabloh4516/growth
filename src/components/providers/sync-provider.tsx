@@ -8,8 +8,8 @@ import { useOrgId } from "@/lib/hooks/use-org";
 const supabase = createClient();
 
 // Sync intervals
-const GOOGLE_ADS_SYNC_INTERVAL = 2 * 60 * 1000; // 2 minutes
-const STALE_THRESHOLD = 90 * 1000; // 90 seconds — consider stale after this
+const GOOGLE_ADS_SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const STALE_THRESHOLD = 4 * 60 * 1000; // 4 minutes — consider stale after this
 
 interface SyncState {
   lastGoogleSync: string | null;

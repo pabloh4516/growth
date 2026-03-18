@@ -6,7 +6,7 @@ import * as queries from "@/lib/services/supabase-queries";
 import type { UtmifySalesFilters } from "@/lib/services/supabase-queries";
 
 // ─── Dashboard ─────────────────────────────────────────
-const REFRESH_INTERVAL = 30 * 1000; // 30 seconds
+const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes — realtime handles instant updates
 
 export function useDashboardMetrics(days = 1) {
   const orgId = useOrgId();

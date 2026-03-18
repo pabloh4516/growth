@@ -3,7 +3,6 @@
 import { useParams, useRouter } from "next/navigation";
 import { useCampaignById } from "@/lib/hooks/use-supabase-data";
 import { formatBRL, formatNumber, formatCompact } from "@/lib/utils";
-import { PageHeader } from "@/components/shared/page-header";
 import { KPICard } from "@/components/shared/kpi-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { PlatformIcon } from "@/components/shared/platform-icon";
@@ -70,19 +69,19 @@ export default function CampaignDetailPage() {
   };
 
   if (isLoading) return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  if (!campaign) return <div className="text-center py-16 text-muted-foreground">Campanha não encontrada</div>;
+  if (!campaign) return <div className="text-center py-16 text-t3">Campanha não encontrada</div>;
 
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-up space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft className="h-4 w-4" /></Button>
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <PlatformIcon platform={campaign.platform?.replace("_ads", "") || "google"} />
-            <h1 className="text-xl font-heading font-bold">{campaign.name}</h1>
+            <h1 className="text-xl font-heading font-bold text-t1">{campaign.name}</h1>
             <StatusBadge status={campaign.status || "draft"} />
           </div>
-          <p className="text-sm text-muted-foreground mt-1">ID: {campaign.external_id || campaign.id}</p>
+          <p className="text-sm text-t3 mt-1">ID: {campaign.external_id || campaign.id}</p>
         </div>
         <Button variant={campaign.status === "active" ? "destructive" : "default"} onClick={toggleStatus} disabled={toggling}>
           {toggling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : campaign.status === "active" ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
@@ -98,7 +97,7 @@ export default function CampaignDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="surface-glow">
+        <Card>
           <CardHeader><CardTitle className="text-base font-heading">Métricas Google</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {[
@@ -111,12 +110,12 @@ export default function CampaignDetailPage() {
               ["CPA (Google)", formatBRL(campaign.cpa || 0)],
               ["ROAS (Google)", `${(campaign.roas || 0).toFixed(2)}x`],
             ].map(([label, value]) => (
-              <div key={label} className="flex justify-between"><span className="text-sm text-muted-foreground">{label}</span><span className="text-sm font-mono">{value}</span></div>
+              <div key={label} className="flex justify-between"><span className="text-sm text-t3">{label}</span><span className="text-sm font-mono">{value}</span></div>
             ))}
           </CardContent>
         </Card>
 
-        <Card className="surface-glow border-primary/20">
+        <Card className="border-primary/20">
           <CardHeader><CardTitle className="text-base font-heading text-primary">Métricas Reais (Utmify)</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {[
@@ -125,19 +124,19 @@ export default function CampaignDetailPage() {
               ["ROAS Real", `${(campaign.real_roas || 0).toFixed(2)}x`],
               ["CPA Real", formatBRL(campaign.real_cpa || 0)],
             ].map(([label, value]) => (
-              <div key={label} className="flex justify-between"><span className="text-sm text-muted-foreground">{label}</span><span className="text-sm font-mono font-semibold">{value}</span></div>
+              <div key={label} className="flex justify-between"><span className="text-sm text-t3">{label}</span><span className="text-sm font-mono font-semibold">{value}</span></div>
             ))}
           </CardContent>
         </Card>
       </div>
 
       {campaign.ad_groups && campaign.ad_groups.length > 0 && (
-        <Card className="surface-glow">
+        <Card>
           <CardHeader><CardTitle className="text-base font-heading">Ad Groups ({campaign.ad_groups.length})</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-2">
               {campaign.ad_groups.map((ag: any) => (
-                <div key={ag.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-accent/50 transition-colors">
+                <div key={ag.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-s2 transition-colors">
                   <span className="text-sm font-medium">{ag.name}</span>
                   <StatusBadge status={ag.status || "active"} />
                 </div>

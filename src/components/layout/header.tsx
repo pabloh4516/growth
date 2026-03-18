@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { usePeriodStore } from "@/lib/hooks/use-period";
 import { useOrgId } from "@/lib/hooks/use-org";
@@ -9,8 +9,6 @@ import { createClient } from "@/lib/supabase/client";
 import { useSyncState } from "@/components/providers/sync-provider";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, LogOut, User, Settings, Building2, RefreshCw, Loader2, Wifi } from "lucide-react";
+import { Menu, LogOut, User, Settings, RefreshCw, Loader2, Wifi } from "lucide-react";
 
 const supabase = createClient();
 
@@ -30,6 +28,45 @@ const PERIODS = [
   { label: "30d", value: "30d" },
   { label: "90d", value: "90d" },
 ] as const;
+
+/* Page title + breadcrumb mapping */
+const PAGE_META: Record<string, { title: string; sub?: string; breadcrumb?: string[] }> = {
+  "/dashboard": { title: "Dashboard", sub: "Visão geral da operação" },
+  "/insights": { title: "Insights & IA", sub: "Agente autônomo de otimização" },
+  "/insights/chat": { title: "Chat com IA", breadcrumb: ["Insights & IA", "Chat"] },
+  "/campaigns": { title: "Google Ads", sub: "Visão geral", breadcrumb: ["Google Ads", "Visão geral"] },
+  "/campaigns/list": { title: "Campanhas", breadcrumb: ["Google Ads", "Campanhas"] },
+  "/campaigns/adgroups": { title: "Grupos de Anúncio", breadcrumb: ["Google Ads", "Grupos de anúncio"] },
+  "/campaigns/ads": { title: "Anúncios", breadcrumb: ["Google Ads", "Anúncios"] },
+  "/campaigns/keywords": { title: "Palavras-chave", breadcrumb: ["Google Ads", "Palavras-chave"] },
+  "/campaigns/rules": { title: "Regras Automáticas", breadcrumb: ["Google Ads", "Regras automáticas"] },
+  "/tiktok": { title: "TikTok Ads", sub: "Visão geral", breadcrumb: ["TikTok Ads", "Visão geral"] },
+  "/creatives": { title: "Criativos", sub: "Biblioteca, análise de fadiga e geração com IA" },
+  "/creatives/generate": { title: "Gerador de Copy", breadcrumb: ["Criativos", "Gerador de Copy"] },
+  "/audiences": { title: "Públicos-Alvo", sub: "Segmentações e audiências" },
+  "/funnel": { title: "Páginas & Funis", sub: "Builder e performance" },
+  "/ab-tests": { title: "Testes A/B", sub: "Experimentos ativos" },
+  "/crm": { title: "Contatos & Pipeline", sub: "CRM de vendas" },
+  "/sales": { title: "Vendas Reais", sub: "Checkout e gateways" },
+  "/automations": { title: "Automações", sub: "Fluxos inteligentes" },
+  "/analytics": { title: "Analytics Avançado", sub: "Dados detalhados" },
+  "/analytics/search-terms": { title: "Search Terms", breadcrumb: ["Analytics", "Search Terms"] },
+  "/analytics/schedule": { title: "Horários & Dispositivos", breadcrumb: ["Analytics", "Horários"] },
+  "/analytics/geo": { title: "Geográfico", breadcrumb: ["Analytics", "Geográfico"] },
+  "/analytics/placements": { title: "Placements", breadcrumb: ["Analytics", "Placements"] },
+  "/analytics/quality-score": { title: "Quality Score", breadcrumb: ["Analytics", "Quality Score"] },
+  "/analytics/ltv": { title: "Análise LTV", breadcrumb: ["Analytics", "LTV"] },
+  "/competitors": { title: "Competidores & SEO", sub: "Monitoramento de concorrentes" },
+  "/seo": { title: "SEO Monitor", sub: "SERP tracking" },
+  "/goals": { title: "Metas & OKRs", sub: "Acompanhamento de objetivos" },
+  "/budget-optimizer": { title: "Budget Optimizer", sub: "Otimização de investimento" },
+  "/financial": { title: "DRE & Projeção", sub: "Demonstrativo de resultado" },
+  "/costs": { title: "Configurar Custos", sub: "Custos operacionais" },
+  "/alerts": { title: "Alertas", sub: "Monitoramento de anomalias" },
+  "/reports": { title: "Relatórios", sub: "Gerados por IA" },
+  "/integrations": { title: "Integrações", sub: "Conexões com plataformas" },
+  "/settings": { title: "Configurações", sub: "Preferências da conta" },
+};
 
 function useLastSyncTime() {
   const orgId = useOrgId();
@@ -43,7 +80,6 @@ function useLastSyncTime() {
         .eq("status", "connected")
         .order("last_sync_at", { ascending: false })
         .limit(1);
-
       if (!data || data.length === 0 || !data[0].last_sync_at) return null;
       return data[0].last_sync_at;
     },
@@ -67,49 +103,53 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuToggle }: HeaderProps) {
-  const { profile, currentOrg, signOut } = useAuth();
+  const { profile, signOut } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const { period, setPeriod } = usePeriodStore();
   const { data: lastSync } = useLastSyncTime();
   const { isSyncing, syncNow } = useSyncState();
 
+  const meta = PAGE_META[pathname] || { title: "GrowthOS" };
+
   const initials = profile?.name
-    ? profile.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase()
+    ? profile.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
     : "?";
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6">
+    <header className="sticky top-0 z-30 bg-s1 border-b border-border px-3 md:px-6 py-3 md:py-3.5 flex items-center gap-2 md:gap-3.5 shrink-0">
       {/* Mobile menu */}
-      <button onClick={onMenuToggle} className="lg:hidden text-muted-foreground hover:text-foreground">
+      <button onClick={onMenuToggle} className="lg:hidden text-t3 hover:text-t1">
         <Menu className="h-5 w-5" />
       </button>
 
-      {/* Workspace */}
-      <div className="hidden sm:flex items-center gap-2">
-        <div className="h-7 w-7 rounded bg-primary/20 flex items-center justify-center">
-          <Building2 className="h-3.5 w-3.5 text-primary" />
-        </div>
-        <span className="text-sm font-medium truncate max-w-[140px]">
-          {currentOrg?.name || "Workspace"}
-        </span>
+      {/* Title + breadcrumb */}
+      <div className="flex-1 min-w-0">
+        {meta.breadcrumb ? (
+          <div className="flex items-center gap-1.5 text-sm text-t3 mb-0.5">
+            {meta.breadcrumb.map((part, i) => (
+              <span key={i} className="flex items-center gap-1.5">
+                {i > 0 && <span className="opacity-40">›</span>}
+                <span className={i === meta.breadcrumb!.length - 1 ? "text-t2" : ""}>{part}</span>
+              </span>
+            ))}
+          </div>
+        ) : null}
+        <div className="font-heading text-lg font-bold tracking-tight">{meta.title}</div>
+        {meta.sub && !meta.breadcrumb && <div className="text-[10px] text-t3 font-light mt-0.5">{meta.sub}</div>}
       </div>
 
       {/* Period selector */}
-      <div className="hidden md:flex items-center gap-1 ml-4 bg-secondary rounded-lg p-0.5">
+      <div className="hidden md:flex items-center gap-1 bg-s2 rounded-md p-1">
         {PERIODS.map((p) => (
           <button
             key={p.value}
             onClick={() => setPeriod(p.value)}
             className={cn(
-              "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+              "px-3 py-[5px] text-xs rounded-[7px] transition-all duration-150 cursor-pointer",
               period === p.value
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-card text-t1 font-medium shadow-[0_1px_4px_rgba(0,0,0,.3)]"
+                : "text-t3 hover:text-t2"
             )}
           >
             {p.label}
@@ -117,74 +157,49 @@ export function Header({ onMenuToggle }: HeaderProps) {
         ))}
       </div>
 
-      {/* Sync indicator + manual sync button */}
-      <div className="hidden md:flex items-center gap-1.5 ml-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={syncNow}
-              disabled={isSyncing}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-accent"
-            >
-              {isSyncing ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <RefreshCw className="h-3 w-3" />
-              )}
-              <span>
-                {isSyncing ? "Sincronizando..." : lastSync ? `Sync: ${formatTimeSince(lastSync)}` : "Sync"}
-              </span>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p className="text-xs">Clique para sincronizar Google Ads agora</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger>
-            <Wifi className="h-3 w-3 text-success" />
-          </TooltipTrigger>
-          <TooltipContent>
-            <p className="text-xs">Realtime ativo — vendas e alertas atualizam automaticamente</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
+      {/* Sync */}
+      <button
+        onClick={syncNow}
+        disabled={isSyncing}
+        className="hidden md:flex items-center gap-1.5 text-xs text-t3 hover:text-t1 transition-colors px-2 py-1 rounded-sm hover:bg-s2"
+      >
+        {isSyncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+        <span>{isSyncing ? "Sync..." : lastSync ? formatTimeSince(lastSync) : "Sync"}</span>
+      </button>
 
-      <div className="flex-1" />
+      {/* Realtime indicator */}
+      <Wifi className="hidden md:block h-3 w-3 text-success" />
 
       {/* User menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-2 outline-none">
+          <button className="outline-none">
             <Avatar className="h-8 w-8">
               <AvatarImage src={profile?.avatar_url || undefined} />
-              <AvatarFallback className="bg-primary/20 text-primary text-xs font-semibold">
+              <AvatarFallback className="bg-purple-dim text-primary text-xs font-semibold">
                 {initials}
               </AvatarFallback>
             </Avatar>
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" className="w-56 bg-s2 border-border shadow-[0_8px_32px_rgba(0,0,0,.5)]">
           <DropdownMenuLabel>
-            <p className="text-sm font-medium">{profile?.name || "Usuário"}</p>
-            <p className="text-xs text-muted-foreground">{profile?.email}</p>
+            <p className="text-base font-medium text-t1">{profile?.name || "Usuário"}</p>
+            <p className="text-xs text-t3">{profile?.email}</p>
           </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => router.push("/settings")}>
+          <DropdownMenuSeparator className="bg-border" />
+          <DropdownMenuItem onClick={() => router.push("/settings")} className="text-t2 hover:text-t1 focus:bg-s3">
             <User className="mr-2 h-4 w-4" />
             Perfil
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push("/settings")}>
+          <DropdownMenuItem onClick={() => router.push("/settings")} className="text-t2 hover:text-t1 focus:bg-s3">
             <Settings className="mr-2 h-4 w-4" />
             Configurações
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
+          <DropdownMenuSeparator className="bg-border" />
           <DropdownMenuItem
-            onClick={async () => {
-              await signOut();
-              router.push("/login");
-            }}
-            className="text-destructive focus:text-destructive"
+            onClick={async () => { await signOut(); router.push("/login"); }}
+            className="text-destructive focus:text-destructive focus:bg-red-dim"
           >
             <LogOut className="mr-2 h-4 w-4" />
             Sair

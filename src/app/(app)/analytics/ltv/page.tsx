@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { formatBRL } from "@/lib/utils";
-import { PageHeader } from "@/components/shared/page-header";
 import { KPICard } from "@/components/shared/kpi-card";
 import { DataTable } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -128,8 +127,11 @@ export default function LTVPage() {
   const recurrentCount = displaySegments.find((s: any) => s.segment === "recorrente")?.contact_count || 0;
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Análise de LTV" description="Lifetime Value por segmento — calculado das vendas reais do checkout" />
+    <div className="space-y-6 animate-fade-up">
+      <div>
+        <h1 className="text-2xl font-heading font-bold text-t1">Análise de LTV</h1>
+        <p className="text-sm text-t3">Lifetime Value por segmento — calculado das vendas reais do checkout</p>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KPICard title="LTV Médio" value={formatBRL(avgLTV)} delay={0} icon={<DollarSign className="h-4 w-4" />} />
         <KPICard title="Total Clientes" value={String(totalCustomers)} delay={1} icon={<Users className="h-4 w-4" />} />
@@ -138,7 +140,7 @@ export default function LTVPage() {
       </div>
 
       {displaySegments.length > 0 && (
-        <Card className="surface-glow">
+        <Card>
           <CardHeader><CardTitle className="text-base font-heading">LTV por Segmento</CardTitle></CardHeader>
           <CardContent>
             <div className="h-[250px]">

@@ -5,7 +5,6 @@ import { useAudiences } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { generateAudiences } from "@/lib/services/edge-functions";
 import { createClient } from "@/lib/supabase/client";
-import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -13,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Plus, UsersRound, Sparkles, Upload } from "lucide-react";
-import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -86,25 +84,25 @@ export default function AudiencesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Públicos-Alvo"
-        description="Gerencie e gere audiências com IA"
-        actions={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleGenerate} disabled={generating}>
-              {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              {generating ? "Gerando..." : "Gerar com IA"}
-            </Button>
-            <Button onClick={() => setCreating(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Criar Público
-            </Button>
-          </div>
-        }
-      />
+    <div className="space-y-6 animate-fade-up">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-t1">Públicos-Alvo</h1>
+          <p className="text-sm text-t3">Gerencie e gere audiências com IA</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleGenerate} disabled={generating}>
+            {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            {generating ? "Gerando..." : "Gerar com IA"}
+          </Button>
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Criar Público
+          </Button>
+        </div>
+      </div>
       {creating && (
-        <Card className="surface-glow border-primary/30">
+        <Card className="border-primary/30">
           <CardContent className="p-4 flex items-end gap-3">
             <div className="flex-1 space-y-2"><Label>Nome</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Público de compradores" /></div>
             <div className="w-36 space-y-2"><Label>Tipo</Label>
@@ -120,43 +118,41 @@ export default function AudiencesPage() {
 
       {audiences && audiences.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {audiences.map((aud: any, idx: number) => (
-            <motion.div key={aud.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
-              <Card className="surface-glow hover:surface-glow-hover transition-all cursor-pointer">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <UsersRound className="h-4 w-4 text-primary" />
-                      <h3 className="text-sm font-semibold">{aud.name}</h3>
-                    </div>
-                    <StatusBadge status={aud.status === "ready" || aud.status === "synced" ? "active" : aud.status === "building" ? "pending" : "error"} />
+          {audiences.map((aud: any) => (
+            <Card key={aud.id} className="hover:shadow-md transition-all cursor-pointer">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <UsersRound className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold">{aud.name}</h3>
                   </div>
-                  <div className="flex gap-2 mb-2">
-                    <Badge variant="secondary">{TYPE_LABELS[aud.type] || aud.type}</Badge>
-                    <Badge variant="outline">{aud.source_type || "—"}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs text-muted-foreground">{aud.contact_count || 0} contatos</p>
-                    {aud.status === "ready" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        onClick={(e) => { e.stopPropagation(); handleSyncToGoogle(aud.id); }}
-                        disabled={syncingId === aud.id}
-                      >
-                        {syncingId === aud.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Upload className="h-3 w-3 mr-1" />}
-                        Sync Google
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+                  <StatusBadge status={aud.status === "ready" || aud.status === "synced" ? "active" : aud.status === "building" ? "pending" : "error"} />
+                </div>
+                <div className="flex gap-2 mb-2">
+                  <Badge variant="secondary">{TYPE_LABELS[aud.type] || aud.type}</Badge>
+                  <Badge variant="outline">{aud.source_type || "—"}</Badge>
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-t3">{aud.contact_count || 0} contatos</p>
+                  {aud.status === "ready" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={(e) => { e.stopPropagation(); handleSyncToGoogle(aud.id); }}
+                      disabled={syncingId === aud.id}
+                    >
+                      {syncingId === aud.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Upload className="h-3 w-3 mr-1" />}
+                      Sync Google
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       ) : (
-        <Card className="surface-glow"><CardContent className="py-16 text-center"><UsersRound className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" /><p className="text-muted-foreground">Nenhum público criado.</p></CardContent></Card>
+        <Card><CardContent className="py-16 text-center"><UsersRound className="h-12 w-12 text-t3/30 mx-auto mb-4" /><p className="text-t3">Nenhum público criado.</p></CardContent></Card>
       )}
     </div>
   );

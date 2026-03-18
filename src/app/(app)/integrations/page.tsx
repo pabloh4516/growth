@@ -5,7 +5,6 @@ import { useIntegrations, useAdAccounts } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { getGoogleAdsAuthUrl, syncGA4, syncSearchConsole, syncUtmify } from "@/lib/services/edge-functions";
 import { createClient } from "@/lib/supabase/client";
-import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,6 @@ import {
   Loader2, Copy, Check, Link2, Trash2, RefreshCw, ExternalLink,
   Plus, Unplug, Clock,
 } from "lucide-react";
-import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -361,12 +359,13 @@ export default function IntegrationsPage() {
     });
 
   return (
-    <div className="space-y-8">
-      <PageHeader title="Integrações" description="Conecte suas plataformas de marketing" />
+    <div className="space-y-8 animate-fade-up">
+      <div>
+        <h1 className="text-2xl font-heading font-bold text-t1">Integrações</h1>
+        <p className="text-sm text-t3 mt-1">Conecte suas plataformas de marketing</p>
+      </div>
 
-      {/* ═══════════════════════════════════════════════════════ */}
-      {/* GOOGLE ADS — CONTAS DE ANÚNCIO */}
-      {/* ═══════════════════════════════════════════════════════ */}
+      {/* GOOGLE ADS */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -374,7 +373,7 @@ export default function IntegrationsPage() {
               <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold text-sm">G</div>
               Google Ads
             </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <p className="text-sm text-t3 mt-0.5">
               {connectedAccounts.length} conta{connectedAccounts.length !== 1 ? "s" : ""} conectada{connectedAccounts.length !== 1 ? "s" : ""}
             </p>
           </div>
@@ -392,119 +391,110 @@ export default function IntegrationsPage() {
 
         {/* Link Multilogin */}
         {multiloginLink && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}>
-            <Card className="surface-glow border-primary/30">
-              <CardContent className="p-4">
-                <p className="text-sm font-medium mb-2">Link para vincular conta (Multilogin)</p>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Envie este link para quem deve autorizar o acesso à conta do Google Ads. Ao clicar, será pedida a autorização do Google e a conta será vinculada automaticamente.
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    value={multiloginLink}
-                    readOnly
-                    className="text-xs font-mono bg-secondary/50"
-                    onClick={(e) => (e.target as HTMLInputElement).select()}
-                  />
-                  <Button size="sm" variant="outline" onClick={handleCopyLink} className="shrink-0">
-                    {copiedLink ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <Card className="border-primary/30">
+            <CardContent className="p-4">
+              <p className="text-sm font-medium mb-2">Link para vincular conta (Multilogin)</p>
+              <p className="text-xs text-t3 mb-3">
+                Envie este link para quem deve autorizar o acesso à conta do Google Ads. Ao clicar, será pedida a autorização do Google e a conta será vinculada automaticamente.
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  value={multiloginLink}
+                  readOnly
+                  className="text-xs font-mono bg-secondary/50"
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                />
+                <Button size="sm" variant="outline" onClick={handleCopyLink} className="shrink-0">
+                  {copiedLink ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Lista de Contas */}
         {allAccounts.length > 0 ? (
           <div className="space-y-2">
-            {allAccounts.map((account: any, idx: number) => (
-              <motion.div
-                key={account.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.05 }}
-              >
-                <Card className={`surface-glow transition-all ${account.status === "connected" ? "border-success/20" : account.status === "expired" ? "border-warning/20" : "border-destructive/20"}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className={`h-10 w-10 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${PLATFORM_COLORS.google_ads}`}>
-                          G
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-semibold truncate">{account.account_name}</h3>
-                            <Badge variant="outline" className="text-[10px] shrink-0">
-                              ID: {account.account_id}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                            {account.currency_code && <span>{account.currency_code}</span>}
-                            {account.timezone && <span>{account.timezone}</span>}
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              Sync: {formatDate(account.last_sync_at)}
-                            </span>
-                          </div>
-                        </div>
+            {allAccounts.map((account: any) => (
+              <Card key={account.id} className={`transition-all ${account.status === "connected" ? "border-success/20" : account.status === "expired" ? "border-warning/20" : "border-destructive/20"}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className={`h-10 w-10 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${PLATFORM_COLORS.google_ads}`}>
+                        G
                       </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <StatusBadge status={
-                          account.status === "connected" ? "active" :
-                          account.status === "expired" ? "pending" : "error"
-                        } />
-
-                        {account.status === "connected" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSyncAccount(account.id)}
-                            disabled={syncing === account.id}
-                          >
-                            {syncing === account.id
-                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              : <RefreshCw className="h-3.5 w-3.5" />
-                            }
-                          </Button>
-                        )}
-
-                        {account.status === "expired" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleConnect("google_ads")}
-                          >
-                            <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                            Reconectar
-                          </Button>
-                        )}
-
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleDisconnect(account.id, account.account_name)}
-                          disabled={disconnecting === account.id}
-                        >
-                          {disconnecting === account.id
-                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            : <Unplug className="h-3.5 w-3.5" />
-                          }
-                        </Button>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-semibold truncate">{account.account_name}</h3>
+                          <Badge variant="outline" className="text-[10px] shrink-0">
+                            ID: {account.account_id}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-t3">
+                          {account.currency_code && <span>{account.currency_code}</span>}
+                          {account.timezone && <span>{account.timezone}</span>}
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Sync: {formatDate(account.last_sync_at)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <StatusBadge status={
+                        account.status === "connected" ? "active" :
+                        account.status === "expired" ? "pending" : "error"
+                      } />
+
+                      {account.status === "connected" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSyncAccount(account.id)}
+                          disabled={syncing === account.id}
+                        >
+                          {syncing === account.id
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <RefreshCw className="h-3.5 w-3.5" />
+                          }
+                        </Button>
+                      )}
+
+                      {account.status === "expired" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleConnect("google_ads")}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                          Reconectar
+                        </Button>
+                      )}
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => handleDisconnect(account.id, account.account_name)}
+                        disabled={disconnecting === account.id}
+                      >
+                        {disconnecting === account.id
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <Unplug className="h-3.5 w-3.5" />
+                        }
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         ) : (
-          <Card className="surface-glow">
+          <Card>
             <CardContent className="py-12 text-center">
               <div className="h-12 w-12 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold mx-auto mb-4">G</div>
-              <p className="text-sm text-muted-foreground mb-4">Nenhuma conta do Google Ads conectada</p>
+              <p className="text-sm text-t3 mb-4">Nenhuma conta do Google Ads conectada</p>
               <Button size="sm" onClick={() => handleConnect("google_ads")} disabled={connecting === "google_ads"}>
                 {connecting === "google_ads" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
                 Conectar Primeira Conta
@@ -514,9 +504,7 @@ export default function IntegrationsPage() {
         )}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════ */}
-      {/* UTMIFY — VENDAS REAIS */}
-      {/* ═══════════════════════════════════════════════════════ */}
+      {/* UTMIFY */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -524,7 +512,7 @@ export default function IntegrationsPage() {
               <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-bold text-sm">U</div>
               Utmify
             </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <p className="text-sm text-t3 mt-0.5">
               Vendas reais via webhook — calcula ROAS real das campanhas
             </p>
           </div>
@@ -533,12 +521,12 @@ export default function IntegrationsPage() {
           )}
         </div>
 
-        <Card className="surface-glow">
+        <Card>
           <CardContent className="p-6 space-y-5">
             {/* Token da API */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Token da API (Utmify)</Label>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-t3">
                 Acesse o painel da Utmify → Configurações → API → copie o token e cole aqui.
               </p>
               <Input
@@ -553,7 +541,7 @@ export default function IntegrationsPage() {
             {/* Webhook Secret (opcional) */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Webhook Secret (opcional)</Label>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-t3">
                 Se a Utmify fornecer um secret para validação HMAC, cole aqui. Deixe vazio se não tiver.
               </p>
               <Input
@@ -568,7 +556,7 @@ export default function IntegrationsPage() {
             {/* Webhook URL para copiar */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">URL do Webhook (configure na Utmify)</Label>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-t3">
                 Copie esta URL e cole no painel da Utmify → Configurações → Webhooks → URL de notificação.
               </p>
               <div className="flex gap-2">
@@ -608,17 +596,17 @@ export default function IntegrationsPage() {
             {utmifyConfig && (
               <div className="rounded-lg bg-secondary/30 p-3 text-xs space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Status</span>
+                  <span className="text-t3">Status</span>
                   <span className={utmifyConfig.is_active ? "text-success" : "text-destructive"}>
                     {utmifyConfig.is_active ? "Ativa" : "Inativa"}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Token configurado</span>
+                  <span className="text-t3">Token configurado</span>
                   <span>{utmifyConfig.api_token ? "Sim" : "Não"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">HMAC Secret</span>
+                  <span className="text-t3">HMAC Secret</span>
                   <span>{utmifyConfig.webhook_secret ? "Configurado" : "Não configurado"}</span>
                 </div>
               </div>
@@ -627,34 +615,32 @@ export default function IntegrationsPage() {
         </Card>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════ */}
-      {/* SELLX — CHECKOUT + GATEWAY */}
-      {/* ═══════════════════════════════════════════════════════ */}
+      {/* SELLX */}
       <div className="space-y-4">
         <div>
           <h2 className="text-lg font-heading font-bold flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400 font-bold text-sm">$</div>
             SellX — Checkout & Gateway
           </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="text-sm text-t3 mt-0.5">
             Receba vendas do seu checkout e gateway em tempo real
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* SellxCheckout */}
-          <Card className="surface-glow">
+          <Card>
             <CardContent className="p-5 space-y-4">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400 font-bold">S</div>
                 <div>
                   <h3 className="text-sm font-semibold">SellxCheckout</h3>
-                  <p className="text-xs text-muted-foreground">Vendas do checkout — order.paid, order.refunded</p>
+                  <p className="text-xs text-t3">Vendas do checkout — order.paid, order.refunded</p>
                 </div>
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Webhook URL</Label>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[11px] text-t3">
                   Cole no SellxCheckout → Configurações → Webhooks
                 </p>
                 <div className="flex gap-2">
@@ -671,7 +657,7 @@ export default function IntegrationsPage() {
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Webhook Secret (HMAC-SHA256)</Label>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[11px] text-t3">
                   Cole o secret do SellxCheckout para validar assinaturas
                 </p>
                 <Input
@@ -683,7 +669,7 @@ export default function IntegrationsPage() {
                 />
               </div>
               <div className="rounded-lg bg-secondary/30 p-3 text-xs space-y-1">
-                <p className="font-medium text-muted-foreground">Eventos recebidos:</p>
+                <p className="font-medium text-t3">Eventos recebidos:</p>
                 <p>order.paid → venda confirmada</p>
                 <p>order.refunded → reembolso</p>
                 <p>order.failed → pagamento falhou</p>
@@ -692,18 +678,18 @@ export default function IntegrationsPage() {
           </Card>
 
           {/* SellxPay */}
-          <Card className="surface-glow">
+          <Card>
             <CardContent className="p-5 space-y-4">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 font-bold">$</div>
                 <div>
                   <h3 className="text-sm font-semibold">SellxPay</h3>
-                  <p className="text-xs text-muted-foreground">Transações do gateway — PIX, cartão, boleto</p>
+                  <p className="text-xs text-t3">Transações do gateway — PIX, cartão, boleto</p>
                 </div>
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Webhook URL (ou Postback URL)</Label>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[11px] text-t3">
                   Configure via API: POST /api/v1/webhooks ou use como postback_url
                 </p>
                 <div className="flex gap-2">
@@ -720,7 +706,7 @@ export default function IntegrationsPage() {
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-medium">API Token (Bearer)</Label>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[11px] text-t3">
                   Token de acesso da API SellxPay — permite puxar vendas históricas
                 </p>
                 <Input
@@ -742,7 +728,7 @@ export default function IntegrationsPage() {
                 />
               </div>
               <div className="rounded-lg bg-secondary/30 p-3 text-xs space-y-1">
-                <p className="font-medium text-muted-foreground">Eventos recebidos:</p>
+                <p className="font-medium text-t3">Eventos recebidos:</p>
                 <p>transaction.paid → pagamento confirmado</p>
                 <p>transaction.reversed → estorno/reembolso</p>
                 <p>transaction.chargedback → chargeback</p>
@@ -784,7 +770,7 @@ export default function IntegrationsPage() {
               </Button>
             )}
             {sellxConfig && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-t3">
                 {sellxConfig.config_json?.pay_api_token ? "API Token configurado" : ""}
                 {sellxConfig.config_json?.checkout_secret ? " • Checkout secret OK" : ""}
               </span>
@@ -793,40 +779,36 @@ export default function IntegrationsPage() {
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════ */}
       {/* OUTRAS INTEGRAÇÕES */}
-      {/* ═══════════════════════════════════════════════════════ */}
       <div className="space-y-4">
         <h2 className="text-lg font-heading font-bold">Outras Integrações</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {otherIntegrations.map((int, idx) => (
-            <motion.div key={int.type} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
-              <Card className="surface-glow hover:surface-glow-hover transition-all">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold">{int.icon}</div>
-                      <div>
-                        <h3 className="text-sm font-semibold">{int.name}</h3>
-                        <p className="text-xs text-muted-foreground">{int.description}</p>
-                      </div>
+          {otherIntegrations.map((int) => (
+            <Card key={int.type} className="hover:border-primary/20 transition-all">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold">{int.icon}</div>
+                    <div>
+                      <h3 className="text-sm font-semibold">{int.name}</h3>
+                      <p className="text-xs text-t3">{int.description}</p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <StatusBadge status={int.status === "connected" ? "connected" : "disconnected"} />
-                    <Button
-                      variant={int.status === "connected" ? "outline" : "default"}
-                      size="sm"
-                      disabled={connecting === int.type || (!int.connectable && int.status !== "connected")}
-                      onClick={() => handleConnect(int.type)}
-                    >
-                      {connecting === int.type && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-                      {int.status === "connected" ? "Reconectar" : int.connectable ? "Conectar" : "Em breve"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <StatusBadge status={int.status === "connected" ? "connected" : "disconnected"} />
+                  <Button
+                    variant={int.status === "connected" ? "outline" : "default"}
+                    size="sm"
+                    disabled={connecting === int.type || (!int.connectable && int.status !== "connected")}
+                    onClick={() => handleConnect(int.type)}
+                  >
+                    {connecting === int.type && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                    {int.status === "connected" ? "Reconectar" : int.connectable ? "Conectar" : "Em breve"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       </div>

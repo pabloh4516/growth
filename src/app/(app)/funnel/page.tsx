@@ -6,13 +6,11 @@ import { createClient } from "@/lib/supabase/client";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { takeFunnelSnapshot } from "@/lib/services/edge-functions";
 import { formatNumber } from "@/lib/utils";
-import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, RefreshCw, ArrowDown, Plus } from "lucide-react";
-import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 const supabase = createClient();
@@ -96,28 +94,22 @@ export default function FunnelPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Funil de Conversão"
-        description="Visualize e diagnostique gargalos no seu funil"
-        actions={
-          <div className="flex gap-2">
-            {funnel && (
-              <Button variant="outline" size="sm" onClick={handleSnapshot} disabled={snapshotting}>
-                {snapshotting ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-2" />}
-                Atualizar Snapshot
-              </Button>
-            )}
-            <Button size="sm" onClick={() => setCreating(true)}>
-              <Plus className="h-3.5 w-3.5 mr-2" />
-              Criar Funil
-            </Button>
-          </div>
-        }
-      />
+    <div className="space-y-6 animate-fade-up">
+      <div className="flex items-center justify-end gap-2">
+        {funnel && (
+          <Button variant="outline" size="sm" onClick={handleSnapshot} disabled={snapshotting}>
+            {snapshotting ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-2" />}
+            Atualizar Snapshot
+          </Button>
+        )}
+        <Button size="sm" onClick={() => setCreating(true)}>
+          <Plus className="h-3.5 w-3.5 mr-2" />
+          Criar Funil
+        </Button>
+      </div>
 
       {creating && (
-        <Card className="surface-glow border-primary/30">
+        <Card className="border-primary/30">
           <CardContent className="p-4 flex items-end gap-3">
             <div className="flex-1 space-y-2">
               <Label>Nome do Funil</Label>
@@ -137,18 +129,15 @@ export default function FunnelPage() {
             const conversionRate = idx > 0 ? ((stage.value / stages[idx - 1].value) * 100).toFixed(1) : "100.0";
             return (
               <div key={idx} className="flex flex-col items-center">
-                <motion.div
-                  initial={{ opacity: 0, scaleX: 0 }}
-                  animate={{ opacity: 1, scaleX: 1 }}
-                  transition={{ duration: 0.4, delay: idx * 0.15 }}
-                  className={`bg-gradient-to-r ${STAGE_COLORS[idx % STAGE_COLORS.length]} rounded-lg py-4 px-6 text-white text-center`}
+                <div
+                  className={`bg-gradient-to-r ${STAGE_COLORS[idx % STAGE_COLORS.length]} rounded-lg py-4 px-6 text-white text-center transition-all`}
                   style={{ width: `${widthPct}%` }}
                 >
                   <p className="text-xs font-semibold uppercase tracking-wider opacity-80">{stage.name}</p>
                   <p className="text-2xl font-bold font-mono mt-1">{formatNumber(stage.value)}</p>
-                </motion.div>
+                </div>
                 {idx < stages.length - 1 && (
-                  <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 py-2 text-xs text-t3">
                     <ArrowDown className="h-3 w-3" />
                     <span>{conversionRate}% de conversão</span>
                   </div>
@@ -158,9 +147,9 @@ export default function FunnelPage() {
           })}
         </div>
       ) : (
-        <Card className="surface-glow">
+        <Card>
           <CardContent className="py-16 text-center">
-            <p className="text-muted-foreground">Nenhum funil configurado.</p>
+            <p className="text-t3">Nenhum funil configurado.</p>
             <Button className="mt-4" onClick={() => setCreating(true)}>Criar Funil</Button>
           </CardContent>
         </Card>

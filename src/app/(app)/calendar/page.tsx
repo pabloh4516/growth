@@ -4,14 +4,12 @@ import { useState } from "react";
 import { useCalendarEvents } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { createClient } from "@/lib/supabase/client";
-import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Plus, Calendar as CalendarIcon } from "lucide-react";
-import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -52,11 +50,17 @@ export default function CalendarPage() {
   }, {});
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Calendário de Marketing" description="Eventos, lançamentos e datas importantes" actions={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4 mr-2" />Novo Evento</Button>} />
+    <div className="space-y-6 animate-fade-up">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-t1">Calendário de Marketing</h1>
+          <p className="text-sm text-t3">Eventos, lançamentos e datas importantes</p>
+        </div>
+        <Button onClick={() => setCreating(true)}><Plus className="h-4 w-4 mr-2" />Novo Evento</Button>
+      </div>
 
       {creating && (
-        <Card className="surface-glow border-primary/30">
+        <Card className="border-primary/30">
           <CardContent className="p-4 flex items-end gap-3">
             <div className="flex-1 space-y-2"><Label>Título</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Lançamento campanha X" /></div>
             <div className="w-44 space-y-2"><Label>Data</Label><Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
@@ -72,26 +76,24 @@ export default function CalendarPage() {
             <div key={date}>
               <h3 className="text-sm font-semibold capitalize mb-3">{date}</h3>
               <div className="space-y-2">
-                {(dateEvents as any[]).map((event: any, idx: number) => (
-                  <motion.div key={event.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.05 }}>
-                    <Card className="surface-glow hover:surface-glow-hover transition-all">
-                      <CardContent className="p-3 flex items-center gap-3">
-                        <div className="h-2 w-2 rounded-full bg-primary shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{event.title}</p>
-                          {event.description && <p className="text-xs text-muted-foreground truncate">{event.description}</p>}
-                        </div>
-                        {event.type && <Badge variant="secondary" className="text-[10px]">{event.type}</Badge>}
-                      </CardContent>
-                    </Card>
-                  </motion.div>
+                {(dateEvents as any[]).map((event: any) => (
+                  <Card key={event.id} className="hover:shadow-md transition-all">
+                    <CardContent className="p-3 flex items-center gap-3">
+                      <div className="h-2 w-2 rounded-full bg-primary shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{event.title}</p>
+                        {event.description && <p className="text-xs text-t3 truncate">{event.description}</p>}
+                      </div>
+                      {event.type && <Badge variant="secondary" className="text-[10px]">{event.type}</Badge>}
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <Card className="surface-glow"><CardContent className="py-16 text-center"><CalendarIcon className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" /><p className="text-muted-foreground">Nenhum evento no calendário.</p><Button className="mt-4" onClick={() => setCreating(true)}>Novo Evento</Button></CardContent></Card>
+        <Card><CardContent className="py-16 text-center"><CalendarIcon className="h-12 w-12 text-t3/30 mx-auto mb-4" /><p className="text-t3">Nenhum evento no calendário.</p><Button className="mt-4" onClick={() => setCreating(true)}>Novo Evento</Button></CardContent></Card>
       )}
     </div>
   );

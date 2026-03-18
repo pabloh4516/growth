@@ -8,9 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PageHeader } from "@/components/shared/page-header";
 import { Send, Bot, User, Loader2, Sparkles, ArrowLeft } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 
 // ---------------------------------------------------------------------------
@@ -54,16 +52,10 @@ function TypingIndicator() {
   return (
     <div className="flex items-center gap-1 px-3 py-2">
       {[0, 1, 2].map((i) => (
-        <motion.span
+        <span
           key={i}
-          className="block h-2 w-2 rounded-full bg-primary/60"
-          animate={{ y: [0, -6, 0] }}
-          transition={{
-            duration: 0.6,
-            repeat: Infinity,
-            delay: i * 0.15,
-            ease: "easeInOut",
-          }}
+          className="block h-2 w-2 rounded-full bg-primary/60 animate-bounce"
+          style={{ animationDelay: `${i * 0.15}s` }}
         />
       ))}
     </div>
@@ -74,11 +66,8 @@ function MessageBubble({ message, index }: { message: Message; index: number }) 
   const isUser = message.role === "user";
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, delay: index < 20 ? index * 0.03 : 0 }}
-      className={`flex items-start gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}
+    <div
+      className={`flex items-start gap-3 animate-fade-up ${isUser ? "flex-row-reverse" : "flex-row"}`}
     >
       {/* Avatar */}
       <div
@@ -108,27 +97,24 @@ function MessageBubble({ message, index }: { message: Message; index: number }) 
           />
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }
 
 function EmptyState({ onSuggestionClick }: { onSuggestionClick: (s: string) => void }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.4 }}
-      className="flex flex-col items-center justify-center h-full gap-6 px-4"
+    <div
+      className="flex flex-col items-center justify-center h-full gap-6 px-4 animate-fade-up"
     >
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#6C5CE7] to-[#00D2FF] shadow-lg shadow-primary/20">
         <Bot className="h-8 w-8 text-white" />
       </div>
 
       <div className="text-center space-y-2">
-        <h2 className="text-xl font-heading font-bold tracking-tight">
+        <h2 className="text-xl font-heading font-bold tracking-tight text-t1">
           Chat com IA do GrowthOS
         </h2>
-        <p className="text-sm text-muted-foreground max-w-md">
+        <p className="text-sm text-t3 max-w-md">
           Pergunte qualquer coisa sobre suas campanhas, funil, ROAS, termos de busca ou budget.
           A IA cruza dados reais da Utmify com métricas do Google Ads para respostas precisas.
         </p>
@@ -136,18 +122,16 @@ function EmptyState({ onSuggestionClick }: { onSuggestionClick: (s: string) => v
 
       <div className="flex flex-wrap justify-center gap-2 max-w-lg">
         {SUGGESTIONS.map((s) => (
-          <motion.button
+          <button
             key={s}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
             onClick={() => onSuggestionClick(s)}
-            className="rounded-full border border-[var(--border-default,#2A2A3E)] bg-[var(--bg-secondary,#12121A)] px-4 py-2 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+            className="rounded-full border border-[var(--border-default,#2A2A3E)] bg-[var(--bg-secondary,#12121A)] px-4 py-2 text-xs text-t3 hover:text-t1 hover:border-primary/50 transition-colors"
           >
             {s}
-          </motion.button>
+          </button>
         ))}
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -235,23 +219,23 @@ export default function AIChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="animate-fade-up flex flex-col h-full">
       {/* Header */}
-      <PageHeader
-        title="Chat com IA"
-        description="Converse com a inteligência artificial sobre seus dados de marketing"
-        actions={
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/insights">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Link>
-          </Button>
-        }
-      />
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h1 className="text-2xl font-heading font-bold text-t1">Chat com IA</h1>
+          <p className="text-sm text-t3 mt-1">Converse com a inteligência artificial sobre seus dados de marketing</p>
+        </div>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/insights">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Link>
+        </Button>
+      </div>
 
       {/* Chat Container */}
-      <Card className="surface-glow flex flex-col flex-1 overflow-hidden" style={{ height: "calc(100vh - 200px)" }}>
+      <Card className="flex flex-col flex-1 overflow-hidden" style={{ height: "calc(100vh - 200px)" }}>
         {/* Messages Area */}
         <ScrollArea className="flex-1 p-4">
           <div ref={scrollRef} className="space-y-4 min-h-full flex flex-col">
@@ -259,17 +243,13 @@ export default function AIChatPage() {
               <EmptyState onSuggestionClick={handleSuggestionClick} />
             ) : (
               <>
-                <AnimatePresence mode="popLayout">
-                  {messages.map((msg, idx) => (
-                    <MessageBubble key={`${idx}-${msg.role}`} message={msg} index={idx} />
-                  ))}
-                </AnimatePresence>
+                {messages.map((msg, idx) => (
+                  <MessageBubble key={`${idx}-${msg.role}`} message={msg} index={idx} />
+                ))}
 
                 {loading && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-start gap-3"
+                  <div
+                    className="flex items-start gap-3 animate-fade-up"
                   >
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#6C5CE7] to-[#00D2FF] text-white">
                       <Sparkles className="h-4 w-4" />
@@ -277,7 +257,7 @@ export default function AIChatPage() {
                     <div className="rounded-2xl rounded-tl-sm bg-[var(--bg-tertiary,#1A1A28)] border border-[var(--border-default,#2A2A3E)] px-4 py-3">
                       <TypingIndicator />
                     </div>
-                  </motion.div>
+                  </div>
                 )}
               </>
             )}
@@ -294,7 +274,7 @@ export default function AIChatPage() {
               onKeyDown={handleKeyDown}
               placeholder="Pergunte sobre suas campanhas, ROAS, funil..."
               disabled={loading}
-              className="flex-1 bg-[var(--bg-tertiary,#1A1A28)] border-[var(--border-default,#2A2A3E)] focus-visible:ring-primary/50 placeholder:text-muted-foreground/60"
+              className="flex-1 bg-[var(--bg-tertiary,#1A1A28)] border-[var(--border-default,#2A2A3E)] focus-visible:ring-primary/50 placeholder:text-t3/60"
               aria-label="Mensagem para a IA"
             />
             <Button

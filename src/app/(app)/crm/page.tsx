@@ -6,7 +6,6 @@ import { useContacts, useDeals, usePipelines } from "@/lib/hooks/use-supabase-da
 import { useOrgId } from "@/lib/hooks/use-org";
 import { formatBRL, cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,23 +37,23 @@ const STAGE_COLORS: Record<string, string> = {
 
 const contactColumns: ColumnDef<any, any>[] = [
   { accessorKey: "name", header: "Nome", cell: ({ row }) => <span className="font-medium">{row.original.name || "—"}</span> },
-  { accessorKey: "email", header: "Email", cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.email}</span> },
+  { accessorKey: "email", header: "Email", cell: ({ row }) => <span className="text-sm text-t3">{row.original.email}</span> },
   {
     accessorKey: "lifecycle_stage", header: "Estágio",
     cell: ({ row }) => {
       const stage = row.original.lifecycle_stage || "lead";
-      return <Badge className={STAGE_COLORS[stage] || "bg-muted text-muted-foreground"}>{stage.toUpperCase()}</Badge>;
+      return <Badge className={STAGE_COLORS[stage] || "bg-muted text-t3"}>{stage.toUpperCase()}</Badge>;
     },
   },
   {
     accessorKey: "lead_score", header: "Score",
     cell: ({ row }) => {
       const score = row.original.lead_score || 0;
-      return <span className={cn("font-mono font-semibold", score >= 70 ? "text-success" : score >= 40 ? "text-warning" : "text-muted-foreground")}>{score}</span>;
+      return <span className={cn("font-mono font-semibold", score >= 70 ? "text-success" : score >= 40 ? "text-warning" : "text-t3")}>{score}</span>;
     },
   },
   { accessorKey: "predicted_ltv", header: "LTV Previsto", cell: ({ row }) => <span className="font-mono text-sm">{formatBRL(row.original.predicted_ltv || 0)}</span> },
-  { accessorKey: "source", header: "Fonte", cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.source || "—"}</span> },
+  { accessorKey: "source", header: "Fonte", cell: ({ row }) => <span className="text-xs text-t3">{row.original.source || "—"}</span> },
 ];
 
 function DraggableDealCard({ deal }: { deal: any }) {
@@ -63,13 +62,13 @@ function DraggableDealCard({ deal }: { deal: any }) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
-      <Card className="surface-glow cursor-grab active:cursor-grabbing hover:surface-glow-hover transition-all">
+      <Card className="cursor-grab active:cursor-grabbing transition-all">
         <CardContent className="p-3">
           <div className="flex items-start gap-2">
-            <div {...listeners}><GripVertical className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" /></div>
+            <div {...listeners}><GripVertical className="h-4 w-4 text-t3 mt-0.5 shrink-0" /></div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{deal.title}</p>
-              <p className="text-xs text-muted-foreground">{deal.contacts?.name || deal.contacts?.email || "—"}</p>
+              <p className="text-xs text-t3">{deal.contacts?.name || deal.contacts?.email || "—"}</p>
               <p className="text-sm font-mono font-semibold mt-1 text-primary">{formatBRL(deal.value || 0)}</p>
             </div>
           </div>
@@ -151,20 +150,16 @@ export default function CRMPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="CRM"
-        description="Gerencie contatos, pipeline de vendas e lead scoring"
-        actions={
-          <Button onClick={() => setCreatingContact(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Contato
-          </Button>
-        }
-      />
+    <div className="space-y-6 animate-fade-up">
+      <div className="flex items-center justify-end">
+        <Button onClick={() => setCreatingContact(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Novo Contato
+        </Button>
+      </div>
 
       {creatingContact && (
-        <Card className="surface-glow border-primary/30">
+        <Card className="border-primary/30">
           <CardContent className="p-4 flex items-end gap-3">
             <div className="flex-1 space-y-2"><Label>Nome</Label><Input value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} placeholder="João Silva" /></div>
             <div className="flex-1 space-y-2"><Label>Email</Label><Input value={newContact.email} onChange={(e) => setNewContact({ ...newContact, email: e.target.value })} placeholder="joao@email.com" type="email" /></div>
@@ -178,7 +173,7 @@ export default function CRMPage() {
         {TABS.map((t) => {
           const Icon = t.icon;
           return (
-            <button key={t.id} onClick={() => setTab(t.id)} className={cn("flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors", tab === t.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
+            <button key={t.id} onClick={() => setTab(t.id)} className={cn("flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors", tab === t.id ? "bg-primary text-primary-foreground" : "text-t3 hover:text-t1")}>
               <Icon className="h-4 w-4" />{t.label}
             </button>
           );
@@ -200,13 +195,13 @@ export default function CRMPage() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h3 className="text-sm font-semibold">{stage.name}</h3>
-                      <p className="text-xs text-muted-foreground">{stageDeals.length} deals · {formatBRL(total)}</p>
+                      <p className="text-xs text-t3">{stageDeals.length} deals · {formatBRL(total)}</p>
                     </div>
                   </div>
                   <DroppableStage stageId={stage.id}>
                     {stageDeals.map((deal: any) => <DraggableDealCard key={deal.id} deal={deal} />)}
                     {stageDeals.length === 0 && (
-                      <div className="py-8 text-center text-xs text-muted-foreground border border-dashed rounded-lg">Arraste deals aqui</div>
+                      <div className="py-8 text-center text-xs text-t3 border border-dashed rounded-lg">Arraste deals aqui</div>
                     )}
                   </DroppableStage>
                 </div>
@@ -217,7 +212,7 @@ export default function CRMPage() {
       )}
 
       {tab === "scoring" && (
-        <Card className="surface-glow">
+        <Card>
           <CardHeader><CardTitle className="text-base font-heading">Distribuição de Lead Scores</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -234,12 +229,12 @@ export default function CRMPage() {
                 const pct = (count / total) * 100;
                 return (
                   <div key={bucket.range} className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground w-16">{bucket.range}</span>
+                    <span className="text-xs text-t3 w-16">{bucket.range}</span>
                     <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
                       <div className={cn("h-full rounded-full transition-all", bucket.color)} style={{ width: `${pct}%` }} />
                     </div>
                     <span className="text-xs font-mono w-12 text-right">{count}</span>
-                    <span className="text-[10px] text-muted-foreground w-10">{bucket.label}</span>
+                    <span className="text-[10px] text-t3 w-10">{bucket.label}</span>
                   </div>
                 );
               })}

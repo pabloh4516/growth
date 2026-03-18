@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { createClient } from "@/lib/supabase/client";
-import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,13 +95,16 @@ export default function CreateCampaignPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="animate-fade-up space-y-6 max-w-2xl">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft className="h-4 w-4" /></Button>
-        <PageHeader title="Nova Campanha" description="Crie uma nova campanha de marketing" />
+        <div>
+          <h1 className="text-2xl font-heading font-bold text-t1">Nova Campanha</h1>
+          <p className="text-sm text-t3 mt-1">Crie uma nova campanha de marketing</p>
+        </div>
       </div>
 
-      <Card className="surface-glow">
+      <Card>
         <CardHeader><CardTitle className="text-base font-heading">Informações da Campanha</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

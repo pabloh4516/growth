@@ -1,120 +1,166 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useCampaigns } from "@/lib/hooks/use-supabase-data";
+import { useQuery } from "@tanstack/react-query";
+import { useCampaigns, useAdAccounts } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { usePeriodStore } from "@/lib/hooks/use-period";
-import { formatBRL, formatNumber, formatCompact } from "@/lib/utils";
-import { PageHeader } from "@/components/shared/page-header";
-import { DataTable } from "@/components/shared/data-table";
-import { StatusBadge } from "@/components/shared/status-badge";
-import { PlatformIcon } from "@/components/shared/platform-icon";
-import { Button } from "@/components/ui/button";
-import { Plus, Loader2, RefreshCw } from "lucide-react";
-import { type ColumnDef } from "@tanstack/react-table";
-import { createClient } from "@/lib/supabase/client";
-import { toast } from "sonner";
+import { formatBRL, formatCompact, formatNumber } from "@/lib/utils";
+import { MetricCard } from "@/components/shared/metric-card";
+import { PlatformHero } from "@/components/shared/platform-hero";
+import { StatusPill } from "@/components/shared/status-pill";
+import { RoasValue } from "@/components/shared/roas-value";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 
-const columns: ColumnDef<any, any>[] = [
-  {
-    accessorKey: "platform",
-    header: "Plataforma",
-    cell: ({ row }) => <PlatformIcon platform={row.original.platform?.replace("_ads", "") || "google"} />,
-  },
-  {
-    accessorKey: "name",
-    header: "Campanha",
-    cell: ({ row }) => (
-      <div>
-        <p className="font-medium truncate max-w-[200px]">{row.original.name}</p>
-        <p className="text-xs text-muted-foreground">{row.original.external_id}</p>
-      </div>
-    ),
-  },
-  { accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status || "draft"} /> },
-  { accessorKey: "daily_budget", header: "Orçamento/dia", cell: ({ row }) => <span className="font-mono text-sm">{formatBRL(row.original.daily_budget || 0)}</span> },
-  { accessorKey: "impressions", header: "Impressões", meta: { className: "hidden md:table-cell" }, cell: ({ row }) => <span className="font-mono text-sm">{formatCompact(row.original.impressions || 0)}</span> },
-  { accessorKey: "clicks", header: "Cliques", meta: { className: "hidden md:table-cell" }, cell: ({ row }) => <span className="font-mono text-sm">{formatNumber(row.original.clicks || 0)}</span> },
-  { accessorKey: "cost", header: "Custo", cell: ({ row }) => <span className="font-mono text-sm">{formatBRL(row.original.cost || 0)}</span> },
-  {
-    accessorKey: "roas",
-    header: "ROAS Google",
-    meta: { className: "hidden lg:table-cell" },
-    cell: ({ row }) => {
-      const cost = row.original.cost || 0;
-      const revenue = row.original.revenue || 0;
-      const roas = cost > 0 ? revenue / cost : 0;
-      return <span className="font-mono text-sm text-muted-foreground">{roas.toFixed(2)}x</span>;
-    },
-  },
-  {
-    accessorKey: "real_roas",
-    header: "ROAS Real",
-    cell: ({ row }) => {
-      const roas = row.original.real_roas || 0;
-      return <span className={`font-mono text-sm font-semibold ${roas >= 2 ? "text-success" : roas >= 1 ? "text-warning" : "text-destructive"}`}>{roas.toFixed(2)}x</span>;
-    },
-  },
-  { accessorKey: "real_sales_count", header: "Vendas Reais", cell: ({ row }) => <span className="font-mono text-sm">{row.original.real_sales_count || 0}</span> },
-  { accessorKey: "real_revenue", header: "Receita Real", cell: ({ row }) => <span className="font-mono text-sm text-success">{formatBRL(row.original.real_revenue || 0)}</span> },
-];
-
-export default function CampaignsPage() {
-  const router = useRouter();
+export default function GoogleAdsOverviewPage() {
   const orgId = useOrgId();
   const { days } = usePeriodStore();
-  const { data: campaigns, isLoading, refetch } = useCampaigns(days);
-  const [syncing, setSyncing] = useState(false);
+  const { data: campaigns, isLoading } = useCampaigns(days);
+  const { data: adAccounts } = useAdAccounts();
 
-  const handleSync = async () => {
-    if (!orgId) return;
-    setSyncing(true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase.functions.invoke("google-ads-sync", {
-        body: { organizationId: orgId, scope: "full" },
-      });
-      if (error) throw error;
-      toast.success("Sincronização concluída!", {
-        description: `${data?.results?.[0]?.campaigns || 0} campanhas sincronizadas`,
-      });
-      refetch();
-    } catch (err: any) {
-      toast.error("Erro ao sincronizar", { description: err?.message });
-    } finally {
-      setSyncing(false);
-    }
-  };
+  const googleAccounts = (adAccounts || []).filter((a: any) => a.platform === "google_ads" || !a.platform);
+  const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const activeAccount = selectedAccount
+    ? googleAccounts.find((a: any) => a.id === selectedAccount)
+    : googleAccounts[0];
+
+  // Filter campaigns by selected account
+  const filteredCampaigns = selectedAccount
+    ? (campaigns || []).filter((c: any) => c.ad_account_id === selectedAccount)
+    : campaigns || [];
+
+  const totalCost = filteredCampaigns.reduce((s: number, c: any) => s + (c.cost || 0), 0);
+  const totalRevenue = filteredCampaigns.reduce((s: number, c: any) => s + (c.real_revenue || 0), 0);
+  const totalClicks = filteredCampaigns.reduce((s: number, c: any) => s + (c.clicks || 0), 0);
+  const totalImpressions = filteredCampaigns.reduce((s: number, c: any) => s + (c.impressions || 0), 0);
+  const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+  const avgCpa = totalClicks > 0 ? totalCost / (filteredCampaigns.reduce((s: number, c: any) => s + (c.conversions || 0), 0) || 1) : 0;
+  const roas = totalCost > 0 ? totalRevenue / totalCost : 0;
+  const activeCampaigns = filteredCampaigns.filter((c: any) => c.status === "active").length;
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Campanhas"
-        description="Gerencie e analise todas as suas campanhas com ROAS real"
-        actions={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleSync} disabled={syncing}>
-              {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-              Sincronizar
-            </Button>
-            <Button onClick={() => router.push("/campaigns/create")}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Campanha
-            </Button>
+    <div className="space-y-5 animate-fade-up">
+      {/* Platform Hero */}
+      <PlatformHero
+        platform="google"
+        name="Google Ads"
+        subtitle={activeAccount?.account_name || activeAccount?.external_id || "Conta conectada"}
+        stats={[
+          { label: "Investimento", value: formatBRL(totalCost) },
+          { label: "ROAS Real", value: `${roas.toFixed(1)}x` },
+          { label: "Campanhas", value: `${activeCampaigns}` },
+        ]}
+      >
+        {/* Account dropdown */}
+        {googleAccounts.length > 1 && (
+          <div className="relative mt-2">
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="flex items-center gap-2 bg-s2 border border-border rounded-sm px-2.5 py-1.5 text-sm text-t2 hover:border-[hsl(var(--border2))] transition-colors cursor-pointer"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_5px_hsl(var(--success))]" />
+              {activeAccount?.account_name || "Selecionar conta"}
+              <span className="text-t4 ml-1">▾</span>
+            </button>
+            {dropdownOpen && (
+              <div className="absolute top-full mt-1.5 left-0 bg-s2 border border-[hsl(var(--border2))] rounded-[12px] p-1.5 min-w-[220px] z-50 shadow-[0_8px_32px_rgba(0,0,0,.5)] animate-fade-up">
+                {googleAccounts.map((acc: any) => (
+                  <button
+                    key={acc.id}
+                    onClick={() => { setSelectedAccount(acc.id); setDropdownOpen(false); }}
+                    className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-sm transition-colors cursor-pointer ${
+                      acc.id === (activeAccount?.id) ? "bg-purple-dim" : "hover:bg-s3"
+                    }`}
+                  >
+                    <div>
+                      <div className="text-base font-medium text-t1">{acc.account_name || acc.external_id}</div>
+                      <div className="text-xs text-t3">{acc.external_id}</div>
+                    </div>
+                    {acc.id === activeAccount?.id && <span className="ml-auto text-sm text-primary">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        }
-      />
-      <DataTable
-        data={campaigns || []}
-        columns={columns}
-        searchPlaceholder="Buscar campanhas..."
-        onRowClick={(row: any) => router.push(`/campaigns/${row.id}`)}
-      />
+        )}
+      </PlatformHero>
+
+      {/* Metrics */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <MetricCard label="Cliques" value={formatCompact(totalClicks)} gradient="purple" />
+        <MetricCard label="Impressões" value={formatCompact(totalImpressions)} gradient="blue" />
+        <MetricCard label="CTR" value={`${avgCtr.toFixed(2)}%`} gradient="green" />
+        <MetricCard label="CPA" value={formatBRL(avgCpa)} gradient="amber" />
+      </div>
+
+      {/* Campaigns Summary Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Resumo de Campanhas</CardTitle>
+            <span className="text-sm text-t3">{filteredCampaigns.length} campanhas</span>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Campanha</th>
+                  <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Tipo</th>
+                  <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Status</th>
+                  <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Investimento</th>
+                  <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden md:table-cell">Conv.</th>
+                  <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">ROAS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCampaigns.slice(0, 8).map((c: any) => (
+                  <tr key={c.id} className="group cursor-pointer">
+                    <td className="py-2.5 border-b border-border text-base font-medium text-t1 group-hover:bg-s2 transition-colors px-1 max-w-[200px] truncate">
+                      {c.name}
+                    </td>
+                    <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
+                      {(() => {
+                        const t = (c.objective || c.campaign_type || "").toLowerCase();
+                        if (t.includes("search")) return "Search";
+                        if (t.includes("display")) return "Display";
+                        if (t.includes("performance_max") || t.includes("pmax")) return "PMax";
+                        if (t.includes("demand_gen")) return "Demanda";
+                        if (t.includes("video")) return "Video";
+                        if (t.includes("shopping")) return "Shopping";
+                        return t || "—";
+                      })()}
+                    </td>
+                    <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
+                      <StatusPill variant={c.status === "active" ? "active" : c.status === "paused" ? "paused" : "learning"} />
+                    </td>
+                    <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1">
+                      {formatBRL(c.cost || 0)}
+                    </td>
+                    <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">
+                      {c.conversions || 0}
+                    </td>
+                    <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
+                      <RoasValue value={c.real_roas || 0} />
+                    </td>
+                  </tr>
+                ))}
+                {filteredCampaigns.length === 0 && (
+                  <tr><td colSpan={6} className="py-8 text-center text-t3 text-sm">Nenhuma campanha encontrada</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

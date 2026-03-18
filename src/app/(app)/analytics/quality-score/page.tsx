@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { formatBRL } from "@/lib/utils";
-import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
@@ -15,7 +14,7 @@ const supabase = createClient();
 
 const columns: ColumnDef<any, any>[] = [
   { accessorKey: "text", header: "Keyword", cell: ({ row }) => <span className="font-medium">{row.original.text}</span> },
-  { accessorKey: "match_type", header: "Tipo", cell: ({ row }) => <span className="text-xs uppercase text-muted-foreground">{row.original.match_type}</span> },
+  { accessorKey: "match_type", header: "Tipo", cell: ({ row }) => <span className="text-xs uppercase text-t3">{row.original.match_type}</span> },
   {
     accessorKey: "quality_score",
     header: "QS",
@@ -58,9 +57,12 @@ export default function QualityScorePage() {
   const maxCount = Math.max(...distribution.map((d) => d.count), 1);
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Quality Score" description="Distribuição e detalhes do Quality Score das keywords" />
-      <Card className="surface-glow">
+    <div className="space-y-6 animate-fade-up">
+      <div>
+        <h1 className="text-2xl font-heading font-bold text-t1">Quality Score</h1>
+        <p className="text-sm text-t3">Distribuição e detalhes do Quality Score das keywords</p>
+      </div>
+      <Card>
         <CardHeader><CardTitle className="text-base font-heading">Distribuição QS</CardTitle></CardHeader>
         <CardContent>
           <div className="flex items-end gap-2 h-32">
@@ -71,7 +73,7 @@ export default function QualityScorePage() {
                   className={cn("w-full rounded-t", d.score >= 7 ? "bg-success" : d.score >= 5 ? "bg-warning" : "bg-destructive")}
                   style={{ height: `${(d.count / maxCount) * 100}%`, minHeight: d.count > 0 ? "4px" : "0" }}
                 />
-                <span className="text-[10px] text-muted-foreground">{d.score}</span>
+                <span className="text-[10px] text-t3">{d.score}</span>
               </div>
             ))}
           </div>
