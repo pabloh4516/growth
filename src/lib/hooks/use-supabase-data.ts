@@ -18,22 +18,32 @@ export function useDashboardMetrics(days = 1) {
   });
 }
 
-export function useTopCampaigns(limit = 5) {
+export function useTopCampaigns(limit = 5, days?: number) {
   const orgId = useOrgId();
   return useQuery({
-    queryKey: ["top-campaigns", orgId, limit],
-    queryFn: () => queries.fetchTopCampaigns(orgId!, limit),
+    queryKey: ["top-campaigns", orgId, limit, days],
+    queryFn: () => queries.fetchTopCampaigns(orgId!, limit, days),
+    enabled: !!orgId,
+    refetchInterval: REFRESH_INTERVAL,
+  });
+}
+
+export function useWorstCampaigns(limit = 5) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: ["worst-campaigns", orgId, limit],
+    queryFn: () => queries.fetchWorstCampaigns(orgId!, limit),
     enabled: !!orgId,
     refetchInterval: REFRESH_INTERVAL,
   });
 }
 
 // ─── Campaigns ─────────────────────────────────────────
-export function useCampaigns() {
+export function useCampaigns(days?: number) {
   const orgId = useOrgId();
   return useQuery({
-    queryKey: ["campaigns", orgId],
-    queryFn: () => queries.fetchCampaigns(orgId!),
+    queryKey: ["campaigns", orgId, days],
+    queryFn: () => queries.fetchCampaigns(orgId!, days),
     enabled: !!orgId,
     refetchInterval: REFRESH_INTERVAL,
   });

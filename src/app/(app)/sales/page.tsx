@@ -1,13 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { useUtmifySales } from "@/lib/hooks/use-supabase-data";
+import { usePeriodStore } from "@/lib/hooks/use-period";
 import { formatBRL } from "@/lib/utils";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
 import { KPICard } from "@/components/shared/kpi-card";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, ShoppingCart, TrendingUp, AlertCircle, Loader2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DollarSign, ShoppingCart, TrendingUp, AlertCircle, Loader2, AlertTriangle, HelpCircle } from "lucide-react";
 import { type ColumnDef } from "@tanstack/react-table";
 
 const STATUS_MAP: Record<string, { label: string; variant: "success" | "warning" | "destructive" | "secondary" }> = {
@@ -45,23 +49,39 @@ const columns: ColumnDef<any, any>[] = [
   {
     accessorKey: "utm_source",
     header: "UTM Source",
+    meta: { className: "hidden md:table-cell" },
     cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.utm_source || "—"}</span>,
   },
   {
     accessorKey: "utm_campaign",
     header: "UTM Campaign",
+    meta: { className: "hidden md:table-cell" },
     cell: ({ row }) => <span className="text-xs text-muted-foreground truncate max-w-[150px] block">{row.original.utm_campaign || "—"}</span>,
   },
   {
     accessorKey: "campaigns",
     header: "Campanha Matched",
     cell: ({ row }) => (
-      <span className="text-sm">{row.original.campaigns?.name || "Sem match"}</span>
+      <span className={`text-sm ${row.original.campaigns?.name ? "" : "text-muted-foreground"}`}>
+        {row.original.campaigns?.name || "Sem match"}
+      </span>
     ),
   },
   {
     accessorKey: "match_confidence",
-    header: "Confiança",
+    header: () => (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="flex items-center gap-1 cursor-help">
+            Confiança
+            <HelpCircle className="h-3 w-3 text-muted-foreground" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-[200px]">
+          <p className="text-xs">Indica o grau de certeza da vinculação entre a venda e a campanha, baseado em UTMs e parâmetros de tracking.</p>
+        </TooltipContent>
+      </Tooltip>
+    ),
     cell: ({ row }) => {
       const conf = row.original.match_confidence || 0;
       return (
@@ -82,12 +102,35 @@ const columns: ColumnDef<any, any>[] = [
   },
 ];
 
+type QuickFilter = "all" | "unmatched" | "paid" | "pending";
+
 export default function SalesPage() {
-  const { data: sales, isLoading } = useUtmifySales();
+  const { days } = usePeriodStore();
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+
+  const dateFrom = (() => {
+    const d = new Date();
+    if (days <= 1) { d.setHours(0, 0, 0, 0); } else { d.setDate(d.getDate() - days); }
+    return d.toISOString();
+  })();
+
+  const { data: sales, isLoading } = useUtmifySales({ dateFrom });
+
+  const filteredSales = (() => {
+    if (!sales) return [];
+    switch (quickFilter) {
+      case "unmatched": return sales.filter((s: any) => !s.matched_campaign_id);
+      case "paid": return sales.filter((s: any) => s.status === "paid");
+      case "pending": return sales.filter((s: any) => s.status === "waiting_payment");
+      default: return sales;
+    }
+  })();
 
   const paidSales = sales?.filter((s: any) => s.status === "paid") || [];
   const totalRevenue = paidSales.reduce((sum: number, s: any) => sum + (s.revenue || 0), 0);
   const avgTicket = paidSales.length > 0 ? totalRevenue / paidSales.length : 0;
+  const unmatchedCount = sales?.filter((s: any) => !s.matched_campaign_id).length || 0;
+  const unmatchedPercent = sales && sales.length > 0 ? (unmatchedCount / sales.length) * 100 : 0;
 
   if (isLoading) {
     return (
@@ -101,8 +144,21 @@ export default function SalesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Vendas Reais"
-        description="Dados de vendas confirmadas da Utmify — a verdade sobre seu ROAS"
+        description="Dados de vendas confirmadas do checkout — a verdade sobre seu ROAS"
       />
+
+      {/* Unmatched warning */}
+      {unmatchedPercent > 20 && (
+        <Card className="border-warning/30 bg-warning/5">
+          <CardContent className="flex items-center gap-3 py-3">
+            <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
+            <div>
+              <p className="text-sm font-medium">{unmatchedCount} vendas sem vínculo com campanha ({unmatchedPercent.toFixed(0)}%)</p>
+              <p className="text-xs text-muted-foreground">Verifique se os UTMs estão configurados corretamente nos links de checkout.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KPICard title="Total Vendas" value={String(paidSales.length)} delay={0} icon={<ShoppingCart className="h-4 w-4" />} />
@@ -110,14 +166,33 @@ export default function SalesPage() {
         <KPICard title="Ticket Médio" value={formatBRL(avgTicket)} delay={2} icon={<TrendingUp className="h-4 w-4" />} />
         <KPICard
           title="Sem Match"
-          value={String(sales?.filter((s: any) => !s.matched_campaign_id).length || 0)}
+          value={String(unmatchedCount)}
           delay={3}
           icon={<AlertCircle className="h-4 w-4" />}
         />
       </div>
 
+      {/* Quick filters */}
+      <div className="flex items-center gap-2">
+        {([
+          { key: "all", label: "Todas" },
+          { key: "unmatched", label: "Sem Match" },
+          { key: "paid", label: "Pagas" },
+          { key: "pending", label: "Pendentes" },
+        ] as const).map((f) => (
+          <Button
+            key={f.key}
+            variant={quickFilter === f.key ? "default" : "outline"}
+            size="sm"
+            onClick={() => setQuickFilter(f.key)}
+          >
+            {f.label}
+          </Button>
+        ))}
+      </div>
+
       <DataTable
-        data={sales || []}
+        data={filteredSales}
         columns={columns}
         searchPlaceholder="Buscar por pedido, email ou campanha..."
       />

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Globe, ExternalLink } from "lucide-react";
+import { Loader2, Plus, Globe, ExternalLink, Brain } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -44,7 +44,23 @@ export default function CompetitorsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Competidores" description="Monitore a estratégia de anúncios dos seus competidores" actions={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4 mr-2" />Adicionar Competidor</Button>} />
+      <PageHeader title="Competidores" description="Monitore a estratégia de anúncios dos seus competidores" actions={
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={async () => {
+            try {
+              toast.info("Analisando competidores com IA...");
+              const { analyzeCompetitors } = await import("@/lib/services/edge-functions");
+              await analyzeCompetitors();
+              toast.success("Análise concluída!");
+              queryClient.invalidateQueries({ queryKey: ["competitors"] });
+            } catch (err: any) { toast.error("Erro na análise", { description: err?.message }); }
+          }}>
+            <Brain className="h-4 w-4 mr-2" />
+            Analisar com IA
+          </Button>
+          <Button onClick={() => setCreating(true)}><Plus className="h-4 w-4 mr-2" />Adicionar Competidor</Button>
+        </div>
+      } />
 
       {creating && (
         <Card className="surface-glow border-primary/30">
@@ -74,8 +90,11 @@ export default function CompetitorsPage() {
                       </Button>
                     )}
                   </div>
-                  <Badge variant="secondary">{comp.competitor_ads?.length || 0} anúncios</Badge>
-                  {comp.notes && <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{comp.notes}</p>}
+                  <Badge variant="secondary">{comp.competitor_ads?.length || 0} análises</Badge>
+                  {comp.competitor_ads?.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-2 line-clamp-3">{comp.competitor_ads[comp.competitor_ads.length - 1]?.description || ""}</p>
+                  )}
+                  {comp.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-2 italic">{comp.notes}</p>}
                 </CardContent>
               </Card>
             </motion.div>

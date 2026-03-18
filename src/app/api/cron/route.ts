@@ -85,10 +85,35 @@ async function runJob(job: string): Promise<JobResult> {
         return { job: "email-queue", status: "ok", data };
       }
 
+      case "financial": {
+        const data = await invokeEdgeFunction("financial-sync");
+        return { job: "financial", status: "ok", data };
+      }
+
+      case "ltv": {
+        const data = await invokeEdgeFunction("ltv-calculator");
+        return { job: "ltv", status: "ok", data };
+      }
+
+      case "landing-pages": {
+        const data = await invokeEdgeFunction("landing-page-metrics");
+        return { job: "landing-pages", status: "ok", data };
+      }
+
+      case "competitors": {
+        const data = await invokeEdgeFunction("competitor-monitor");
+        return { job: "competitors", status: "ok", data };
+      }
+
+      case "automations": {
+        const data = await invokeEdgeFunction("automation-engine");
+        return { job: "automations", status: "ok", data };
+      }
+
       case "all": {
         // Run all jobs sequentially to avoid overwhelming the system
         const results: JobResult[] = [];
-        for (const j of ["sync", "scoring", "alerts", "funnel", "analysis", "email-queue"]) {
+        for (const j of ["sync", "scoring", "alerts", "funnel", "analysis", "email-queue", "financial", "ltv", "landing-pages", "automations"]) {
           const result = await runJob(j);
           results.push(result);
         }
@@ -104,20 +129,27 @@ async function runJob(job: string): Promise<JobResult> {
   }
 }
 
-export async function GET(request: NextRequest) {
-  // Validate cron secret
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = request.nextUrl.searchParams.get("secret");
-
-  if (CRON_SECRET) {
-    const isAuthorized =
-      authHeader === `Bearer ${CRON_SECRET}` ||
-      cronSecret === CRON_SECRET;
-
-    if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+function validateCronAuth(request: NextRequest): NextResponse | null {
+  if (!CRON_SECRET) {
+    return NextResponse.json(
+      { error: "CRON_SECRET not configured" },
+      { status: 500 }
+    );
   }
+
+  const authHeader = request.headers.get("authorization");
+  const isAuthorized = authHeader === `Bearer ${CRON_SECRET}`;
+
+  if (!isAuthorized) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  return null;
+}
+
+export async function GET(request: NextRequest) {
+  const authError = validateCronAuth(request);
+  if (authError) return authError;
 
   const job = request.nextUrl.searchParams.get("job") || "all";
   const result = await runJob(job);
@@ -129,18 +161,8 @@ export async function GET(request: NextRequest) {
 
 // Also support POST for manual triggers from dashboard
 export async function POST(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = request.nextUrl.searchParams.get("secret");
-
-  if (CRON_SECRET) {
-    const isAuthorized =
-      authHeader === `Bearer ${CRON_SECRET}` ||
-      cronSecret === CRON_SECRET;
-
-    if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const authError = validateCronAuth(request);
+  if (authError) return authError;
 
   const body = await request.json().catch(() => ({}));
   const job = body.job || request.nextUrl.searchParams.get("job") || "all";

@@ -101,3 +101,18 @@ export function sendEmail(params: { contactId: string; subject: string; bodyHtml
 export function runAlertChecker(orgId: string) {
   return invoke("alert-checker", { organizationId: orgId });
 }
+
+// ─── WhatsApp ──────────────────────────────────────────
+export function sendWhatsApp(templateId: string, contacts: { phone: string; variables: Record<string, string> }[]) {
+  return invoke("whatsapp-sender", { templateId, contacts });
+}
+
+// ─── Offline Conversions ────────────────────────────────
+export function processOfflineConversions(uploadId: string) {
+  return invoke("process-offline-conversions", { uploadId });
+}
+
+// ─── Competitor Monitor ─────────────────────────────────
+export function analyzeCompetitors() {
+  return invoke("competitor-monitor", {});
+}

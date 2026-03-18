@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { usePeriodStore } from "@/lib/hooks/use-period";
+import { useOrgId } from "@/lib/hooks/use-org";
+import { useQuery } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -14,7 +16,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, Search, Bell, LogOut, User, Settings, Building2 } from "lucide-react";
+import { Menu, LogOut, User, Settings, Building2, RefreshCw } from "lucide-react";
+
+const supabase = createClient();
 
 const PERIODS = [
   { label: "Hoje", value: "hoje" },
@@ -24,6 +28,37 @@ const PERIODS = [
   { label: "90d", value: "90d" },
 ] as const;
 
+function useLastSyncTime() {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: ["last-sync", orgId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("ad_accounts")
+        .select("last_sync_at")
+        .eq("organization_id", orgId!)
+        .eq("status", "connected")
+        .order("last_sync_at", { ascending: false })
+        .limit(1);
+
+      if (!data || data.length === 0 || !data[0].last_sync_at) return null;
+      return data[0].last_sync_at;
+    },
+    enabled: !!orgId,
+    refetchInterval: 30 * 1000,
+  });
+}
+
+function formatTimeSince(isoDate: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "agora";
+  if (minutes < 60) return `há ${minutes}min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `há ${hours}h`;
+  return `há ${Math.floor(hours / 24)}d`;
+}
+
 interface HeaderProps {
   onMenuToggle: () => void;
 }
@@ -32,6 +67,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
   const { profile, currentOrg, signOut } = useAuth();
   const router = useRouter();
   const { period, setPeriod } = usePeriodStore();
+  const { data: lastSync } = useLastSyncTime();
 
   const initials = profile?.name
     ? profile.name
@@ -77,18 +113,15 @@ export function Header({ onMenuToggle }: HeaderProps) {
         ))}
       </div>
 
+      {/* Sync indicator */}
+      {lastSync && (
+        <div className="hidden md:flex items-center gap-1.5 ml-2 text-xs text-muted-foreground">
+          <RefreshCw className="h-3 w-3" />
+          <span>Sync: {formatTimeSince(lastSync)}</span>
+        </div>
+      )}
+
       <div className="flex-1" />
-
-      {/* Search */}
-      <Button variant="ghost" size="icon" className="text-muted-foreground">
-        <Search className="h-4 w-4" />
-      </Button>
-
-      {/* Notifications */}
-      <Button variant="ghost" size="icon" className="relative text-muted-foreground">
-        <Bell className="h-4 w-4" />
-        <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />
-      </Button>
 
       {/* User menu */}
       <DropdownMenu>

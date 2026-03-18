@@ -61,6 +61,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { label: "Funil & Jornada", href: "/funnel", icon: Filter },
       { label: "Campanhas", href: "/campaigns", icon: Megaphone },
+      { label: "Budget Optimizer", href: "/budget-optimizer", icon: PiggyBank },
     ],
   },
   {
@@ -75,7 +76,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     title: "CRM & Vendas",
     items: [
       { label: "Contatos & Pipeline", href: "/crm", icon: Users },
-      { label: "Vendas Reais", href: "/sales", icon: DollarSign, badge: "Utmify", badgeVariant: "success" },
+      { label: "Vendas Reais", href: "/sales", icon: DollarSign },
       { label: "Call Tracking", href: "/call-tracking", icon: Phone },
     ],
   },
@@ -98,6 +99,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       },
       { label: "SEO Monitor", href: "/seo", icon: Search },
       { label: "Competidores", href: "/competitors", icon: Shield },
+      { label: "Públicos-Alvo", href: "/audiences", icon: UsersRound },
     ],
   },
   {
@@ -105,7 +107,6 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Automações", href: "/automations", icon: Zap },
       { label: "Financeiro", href: "/financial", icon: Wallet },
-      { label: "Budget Optimizer", href: "/budget-optimizer", icon: PiggyBank },
       { label: "Conv. Offline", href: "/offline-conversions", icon: Upload },
       { label: "Calendário", href: "/calendar", icon: Calendar },
       { label: "Metas & OKRs", href: "/goals", icon: Target },
@@ -114,11 +115,10 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   {
     title: "Gestão",
     items: [
-      { label: "Alertas", href: "/alerts", icon: Bell, badge: "5", badgeVariant: "warning" },
+      { label: "Alertas", href: "/alerts", icon: Bell },
       { label: "Relatórios", href: "/reports", icon: FileText },
       { label: "Equipe & Tarefas", href: "/tasks", icon: ListChecks },
       { label: "Portal do Cliente", href: "/client-portal", icon: UserCheck },
-      { label: "Públicos-Alvo", href: "/audiences", icon: UsersRound },
       { label: "Integrações", href: "/integrations", icon: Plug },
       { label: "Configurações", href: "/settings", icon: Settings },
     ],

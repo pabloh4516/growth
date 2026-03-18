@@ -9,13 +9,15 @@ import { AreaChart, Area, ResponsiveContainer } from "recharts";
 interface KPICardProps {
   title: string;
   value: string;
+  subtitle?: string;
   change?: number;
   sparkData?: number[];
   delay?: number;
   icon?: React.ReactNode;
+  size?: "default" | "sm";
 }
 
-export function KPICard({ title, value, change = 0, sparkData = [], delay = 0, icon }: KPICardProps) {
+export function KPICard({ title, value, subtitle, change = 0, sparkData = [], delay = 0, icon, size = "default" }: KPICardProps) {
   const isPositive = change > 0;
   const isNeutral = change === 0;
   const TrendIcon = isNeutral ? Minus : isPositive ? TrendingUp : TrendingDown;
@@ -24,20 +26,27 @@ export function KPICard({ title, value, change = 0, sparkData = [], delay = 0, i
 
   const chartData = sparkData.map((v) => ({ v }));
 
+  const isSmall = size === "sm";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: delay * 0.1 }}
     >
-      <Card className="p-4 surface-glow hover:surface-glow-hover transition-all">
+      <Card className={cn("surface-glow hover:surface-glow-hover transition-all", isSmall ? "p-3" : "p-4")}>
         <div className="flex items-start justify-between mb-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {title}
-          </p>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {title}
+            </p>
+            {subtitle && (
+              <p className="text-[9px] text-muted-foreground/60 mt-0.5">{subtitle}</p>
+            )}
+          </div>
           {icon && <div className="text-muted-foreground">{icon}</div>}
         </div>
-        <p className="text-2xl font-bold font-mono tracking-tight">{value}</p>
+        <p className={cn("font-bold font-mono tracking-tight", isSmall ? "text-lg" : "text-2xl")}>{value}</p>
         <div className="flex items-center justify-between mt-2">
           <div className={cn("flex items-center gap-1 text-xs font-medium", trendColor)}>
             <TrendIcon className="h-3 w-3" />

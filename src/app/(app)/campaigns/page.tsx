@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCampaigns } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
+import { usePeriodStore } from "@/lib/hooks/use-period";
 import { formatBRL, formatNumber, formatCompact } from "@/lib/utils";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
@@ -33,9 +34,20 @@ const columns: ColumnDef<any, any>[] = [
   },
   { accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status || "draft"} /> },
   { accessorKey: "daily_budget", header: "Orçamento/dia", cell: ({ row }) => <span className="font-mono text-sm">{formatBRL(row.original.daily_budget || 0)}</span> },
-  { accessorKey: "impressions", header: "Impressões", cell: ({ row }) => <span className="font-mono text-sm">{formatCompact(row.original.impressions || 0)}</span> },
-  { accessorKey: "clicks", header: "Cliques", cell: ({ row }) => <span className="font-mono text-sm">{formatNumber(row.original.clicks || 0)}</span> },
+  { accessorKey: "impressions", header: "Impressões", meta: { className: "hidden md:table-cell" }, cell: ({ row }) => <span className="font-mono text-sm">{formatCompact(row.original.impressions || 0)}</span> },
+  { accessorKey: "clicks", header: "Cliques", meta: { className: "hidden md:table-cell" }, cell: ({ row }) => <span className="font-mono text-sm">{formatNumber(row.original.clicks || 0)}</span> },
   { accessorKey: "cost", header: "Custo", cell: ({ row }) => <span className="font-mono text-sm">{formatBRL(row.original.cost || 0)}</span> },
+  {
+    accessorKey: "roas",
+    header: "ROAS Google",
+    meta: { className: "hidden lg:table-cell" },
+    cell: ({ row }) => {
+      const cost = row.original.cost || 0;
+      const revenue = row.original.revenue || 0;
+      const roas = cost > 0 ? revenue / cost : 0;
+      return <span className="font-mono text-sm text-muted-foreground">{roas.toFixed(2)}x</span>;
+    },
+  },
   {
     accessorKey: "real_roas",
     header: "ROAS Real",
@@ -51,7 +63,8 @@ const columns: ColumnDef<any, any>[] = [
 export default function CampaignsPage() {
   const router = useRouter();
   const orgId = useOrgId();
-  const { data: campaigns, isLoading, refetch } = useCampaigns();
+  const { days } = usePeriodStore();
+  const { data: campaigns, isLoading, refetch } = useCampaigns(days);
   const [syncing, setSyncing] = useState(false);
 
   const handleSync = async () => {
@@ -82,7 +95,7 @@ export default function CampaignsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Campanhas"
-        description="Gerencie e analise todas as suas campanhas com ROAS real da Utmify"
+        description="Gerencie e analise todas as suas campanhas com ROAS real"
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleSync} disabled={syncing}>

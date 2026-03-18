@@ -42,13 +42,20 @@ export async function fetchDashboardMetrics(orgId: string, days = 1) {
 }
 
 // ─── Campaigns ─────────────────────────────────────────
-export async function fetchCampaigns(orgId: string) {
-  const { data, error } = await supabase
+export async function fetchCampaigns(orgId: string, days?: number) {
+  let query = supabase
     .from("campaigns")
     .select("*, ad_groups(*)")
     .eq("organization_id", orgId)
     .order("created_at", { ascending: false });
 
+  if (days) {
+    const dateFrom = new Date();
+    dateFrom.setDate(dateFrom.getDate() - days);
+    query = query.gte("updated_at", dateFrom.toISOString());
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return data;
 }
@@ -65,13 +72,35 @@ export async function fetchCampaignById(orgId: string, id: string) {
   return data;
 }
 
-export async function fetchTopCampaigns(orgId: string, limit = 5) {
-  const { data, error } = await supabase
+export async function fetchTopCampaigns(orgId: string, limit = 5, days?: number) {
+  let query = supabase
     .from("campaigns")
     .select("*")
     .eq("organization_id", orgId)
     .not("real_roas", "is", null)
     .order("real_roas", { ascending: false })
+    .limit(limit);
+
+  if (days) {
+    const dateFrom = new Date();
+    dateFrom.setDate(dateFrom.getDate() - days);
+    query = query.gte("updated_at", dateFrom.toISOString());
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchWorstCampaigns(orgId: string, limit = 5) {
+  const { data, error } = await supabase
+    .from("campaigns")
+    .select("*")
+    .eq("organization_id", orgId)
+    .eq("status", "active")
+    .gt("cost", 0)
+    .or("real_sales_count.is.null,real_sales_count.eq.0,real_roas.lt.0.5")
+    .order("cost", { ascending: false })
     .limit(limit);
 
   if (error) throw error;
@@ -416,6 +445,7 @@ export async function fetchKeywords(orgId: string) {
   const { data, error } = await supabase
     .from("keywords")
     .select("*")
+    .eq("organization_id", orgId)
     .order("cost", { ascending: false })
     .limit(500);
 
