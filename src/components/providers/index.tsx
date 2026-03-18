@@ -3,6 +3,7 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryProvider } from "./query-provider";
 import { AuthProvider } from "./auth-provider";
+import { SyncProvider } from "./sync-provider";
 import { Toaster } from "sonner";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -10,6 +11,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryProvider>
       <TooltipProvider>
         <AuthProvider>
+          <SyncProvider>
           {children}
           <Toaster
             position="top-right"
@@ -22,6 +24,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               },
             }}
           />
+        </SyncProvider>
         </AuthProvider>
       </TooltipProvider>
     </QueryProvider>

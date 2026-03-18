@@ -124,62 +124,27 @@ serve(async (req) => {
     }
 
     // =============================================
-    // UTM-TO-CAMPAIGN MATCHING
+    // UTM-TO-CAMPAIGN MATCHING (using shared matcher)
     // =============================================
     let matchedCampaignId: string | null = null;
     let matchConfidence = 0;
 
     if (sale && status === 'paid') {
-      // Strategy 1: Match by sck/src containing campaign external_id (highest confidence)
-      if (tracking.sck || tracking.src) {
-        const searchValue = tracking.sck || tracking.src;
-        const { data: campaigns } = await supabase
-          .from('campaigns')
-          .select('id, external_id, name')
-          .eq('organization_id', orgId)
-          .eq('platform', 'google_ads');
+      // Dynamic import of shared matcher
+      const { matchSaleToCampaign, recalculateCampaignMetrics } = await import('../_shared/campaign-matcher.ts');
 
-        if (campaigns) {
-          for (const campaign of campaigns) {
-            if (searchValue.includes(campaign.external_id)) {
-              matchedCampaignId = campaign.id;
-              matchConfidence = 0.95;
-              break;
-            }
-          }
-        }
-      }
+      const matchResult = await matchSaleToCampaign(supabase, orgId, {
+        utm_source: tracking.utm_source,
+        utm_campaign: tracking.utm_campaign,
+        utm_medium: tracking.utm_medium,
+        utm_content: tracking.utm_content,
+        utm_term: tracking.utm_term,
+        src: tracking.src,
+        sck: tracking.sck,
+      });
 
-      // Strategy 2: Match by utm_campaign name (medium confidence)
-      if (!matchedCampaignId && tracking.utm_campaign) {
-        const { data: campaigns } = await supabase
-          .from('campaigns')
-          .select('id, name')
-          .eq('organization_id', orgId)
-          .ilike('name', `%${tracking.utm_campaign}%`);
-
-        if (campaigns && campaigns.length === 1) {
-          matchedCampaignId = campaigns[0].id;
-          matchConfidence = 0.7;
-        } else if (campaigns && campaigns.length > 1) {
-          // Exact match preferred
-          const exact = campaigns.find(c =>
-            c.name.toLowerCase() === tracking.utm_campaign.toLowerCase()
-          );
-          if (exact) {
-            matchedCampaignId = exact.id;
-            matchConfidence = 0.85;
-          } else {
-            matchedCampaignId = campaigns[0].id;
-            matchConfidence = 0.5;
-          }
-        }
-      }
-
-      // Strategy 3: Match by utm_source = google (low confidence, just tags it as Google)
-      if (!matchedCampaignId && tracking.utm_source === 'google') {
-        matchConfidence = 0.2; // Very low - we know it's Google but not which campaign
-      }
+      matchedCampaignId = matchResult.campaignId;
+      matchConfidence = matchResult.confidence;
 
       // Update sale with match
       if (matchedCampaignId) {
@@ -190,43 +155,15 @@ serve(async (req) => {
             match_confidence: matchConfidence,
           })
           .eq('id', sale.id);
-      }
 
-      // =============================================
-      // RECALCULATE REAL METRICS FOR MATCHED CAMPAIGN
-      // =============================================
-      if (matchedCampaignId) {
-        const { data: salesForCampaign } = await supabase
+        // Recalculate real metrics for matched campaign
+        await recalculateCampaignMetrics(supabase, matchedCampaignId);
+      } else if (matchConfidence > 0) {
+        // Save confidence even without match (e.g. we know it's from Google)
+        await supabase
           .from('utmify_sales')
-          .select('revenue')
-          .eq('matched_campaign_id', matchedCampaignId)
-          .eq('status', 'paid');
-
-        if (salesForCampaign) {
-          const realSalesCount = salesForCampaign.length;
-          const realRevenue = salesForCampaign.reduce((sum, s) => sum + Number(s.revenue), 0);
-
-          // Get campaign cost
-          const { data: campaign } = await supabase
-            .from('campaigns')
-            .select('cost')
-            .eq('id', matchedCampaignId)
-            .single();
-
-          const cost = Number(campaign?.cost || 0);
-          const realRoas = cost > 0 ? realRevenue / cost : 0;
-          const realCpa = realSalesCount > 0 ? cost / realSalesCount : 0;
-
-          await supabase
-            .from('campaigns')
-            .update({
-              real_sales_count: realSalesCount,
-              real_revenue: realRevenue,
-              real_roas: Math.round(realRoas * 100) / 100,
-              real_cpa: Math.round(realCpa * 100) / 100,
-            })
-            .eq('id', matchedCampaignId);
-        }
+          .update({ match_confidence: matchConfidence })
+          .eq('id', sale.id);
       }
     }
 

@@ -6,8 +6,11 @@ import { usePeriodStore } from "@/lib/hooks/use-period";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { useSyncState } from "@/components/providers/sync-provider";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, LogOut, User, Settings, Building2, RefreshCw } from "lucide-react";
+import { Menu, LogOut, User, Settings, Building2, RefreshCw, Loader2, Wifi } from "lucide-react";
 
 const supabase = createClient();
 
@@ -68,6 +71,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
   const router = useRouter();
   const { period, setPeriod } = usePeriodStore();
   const { data: lastSync } = useLastSyncTime();
+  const { isSyncing, syncNow } = useSyncState();
 
   const initials = profile?.name
     ? profile.name
@@ -113,13 +117,38 @@ export function Header({ onMenuToggle }: HeaderProps) {
         ))}
       </div>
 
-      {/* Sync indicator */}
-      {lastSync && (
-        <div className="hidden md:flex items-center gap-1.5 ml-2 text-xs text-muted-foreground">
-          <RefreshCw className="h-3 w-3" />
-          <span>Sync: {formatTimeSince(lastSync)}</span>
-        </div>
-      )}
+      {/* Sync indicator + manual sync button */}
+      <div className="hidden md:flex items-center gap-1.5 ml-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={syncNow}
+              disabled={isSyncing}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-accent"
+            >
+              {isSyncing ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+              <span>
+                {isSyncing ? "Sincronizando..." : lastSync ? `Sync: ${formatTimeSince(lastSync)}` : "Sync"}
+              </span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-xs">Clique para sincronizar Google Ads agora</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger>
+            <Wifi className="h-3 w-3 text-success" />
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-xs">Realtime ativo — vendas e alertas atualizam automaticamente</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
 
       <div className="flex-1" />
 

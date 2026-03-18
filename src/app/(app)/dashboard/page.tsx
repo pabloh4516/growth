@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { useDashboardMetrics, useTopCampaigns, useWorstCampaigns, useInsights } from "@/lib/hooks/use-supabase-data";
@@ -137,45 +136,6 @@ export default function DashboardPage() {
   const { data: insights, isLoading: insightsLoading } = useInsights();
   const { data: healthScore } = useHealthScore();
   const { data: salesData } = useSalesFromCheckout(days);
-  const hasSyncedOnMount = useRef(false);
-
-  // Auto-sync Google Ads every 60 seconds
-  useEffect(() => {
-    if (!orgId) return;
-
-    const syncGoogleAds = async () => {
-      try {
-        const { data: accounts } = await supabase
-          .from("ad_accounts")
-          .select("id, last_sync_at")
-          .eq("organization_id", orgId)
-          .eq("status", "connected");
-
-        if (!accounts || accounts.length === 0) return;
-
-        const oneMinAgo = new Date(Date.now() - 60 * 1000).toISOString();
-        const staleAccounts = accounts.filter(
-          (a) => !a.last_sync_at || a.last_sync_at < oneMinAgo
-        );
-
-        if (staleAccounts.length > 0) {
-          await supabase.functions.invoke("google-ads-sync", {
-            body: { organizationId: orgId, scope: "campaigns_only" },
-          });
-        }
-      } catch (err) {
-        console.error("Auto-sync failed:", err);
-      }
-    };
-
-    if (!hasSyncedOnMount.current) {
-      hasSyncedOnMount.current = true;
-      syncGoogleAds();
-    }
-
-    const interval = setInterval(syncGoogleAds, 60 * 1000);
-    return () => clearInterval(interval);
-  }, [orgId]);
 
   // Merge daily data: cost from Google Ads + real revenue from checkout
   const dailyData = (() => {

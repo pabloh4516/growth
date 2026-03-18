@@ -116,3 +116,8 @@ export function processOfflineConversions(uploadId: string) {
 export function analyzeCompetitors() {
   return invoke("competitor-monitor", {});
 }
+
+// ─── Re-match Sales ─────────────────────────────────────
+export function rematchSales(orgId: string) {
+  return invoke("rematch-sales", { organizationId: orgId });
+}

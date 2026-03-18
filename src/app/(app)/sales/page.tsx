@@ -11,7 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { DollarSign, ShoppingCart, TrendingUp, AlertCircle, Loader2, AlertTriangle, HelpCircle } from "lucide-react";
+import { DollarSign, ShoppingCart, TrendingUp, AlertCircle, Loader2, AlertTriangle, HelpCircle, RefreshCw } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
+import { useOrgId } from "@/lib/hooks/use-org";
+import { toast } from "sonner";
 import { type ColumnDef } from "@tanstack/react-table";
 
 const STATUS_MAP: Record<string, { label: string; variant: "success" | "warning" | "destructive" | "secondary" }> = {
@@ -104,9 +108,35 @@ const columns: ColumnDef<any, any>[] = [
 
 type QuickFilter = "all" | "unmatched" | "paid" | "pending";
 
+const supabase = createClient();
+
 export default function SalesPage() {
+  const orgId = useOrgId();
+  const queryClient = useQueryClient();
   const { days } = usePeriodStore();
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  const [rematching, setRematching] = useState(false);
+
+  const handleRematch = async () => {
+    if (!orgId) return;
+    setRematching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rematch-sales", {
+        body: { organizationId: orgId },
+      });
+      if (error) throw error;
+      toast.success("Re-match concluído!", {
+        description: `${data?.newlyMatched || 0} novas vinculações, ${data?.improved || 0} melhoradas`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["utmify-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["checkout-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+    } catch (err: any) {
+      toast.error("Erro no re-match", { description: err?.message });
+    } finally {
+      setRematching(false);
+    }
+  };
 
   const dateFrom = (() => {
     const d = new Date();
@@ -145,6 +175,12 @@ export default function SalesPage() {
       <PageHeader
         title="Vendas Reais"
         description="Dados de vendas confirmadas do checkout — a verdade sobre seu ROAS"
+        actions={
+          <Button variant="outline" size="sm" onClick={handleRematch} disabled={rematching}>
+            {rematching ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-2" />}
+            Re-vincular Campanhas
+          </Button>
+        }
       />
 
       {/* Unmatched warning */}
