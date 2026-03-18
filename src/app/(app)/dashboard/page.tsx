@@ -79,6 +79,7 @@ export default function DashboardPage() {
   const totalCost = metrics?.cost ?? 0;
   const realRevenue = salesData?.paidRevenue ?? 0;
   const realRoas = totalCost > 0 ? realRevenue / totalCost : 0;
+  const profit = realRevenue - totalCost;
   const leads = metrics?.conversions ?? 0;
 
   // Build daily chart data merging cost + revenue
@@ -117,10 +118,10 @@ export default function DashboardPage() {
           gradient="purple"
         />
         <MetricCard
-          label="Receita atribuída"
-          value={formatBRL(realRevenue)}
-          delta={undefined}
-          deltaType="up"
+          label="Lucro"
+          value={formatBRL(profit)}
+          delta={profit !== 0 ? (profit > 0 ? "positivo" : "negativo") : undefined}
+          deltaType={profit >= 0 ? "up" : "down"}
           gradient="green"
         />
         <MetricCard

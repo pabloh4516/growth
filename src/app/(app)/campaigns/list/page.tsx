@@ -113,7 +113,9 @@ export default function GoogleCampaignsPage() {
                   <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden md:table-cell">Impressões</th>
                   <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden md:table-cell">Cliques</th>
                   <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden lg:table-cell">CTR</th>
-                  <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden lg:table-cell">Conv.</th>
+                  <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden md:table-cell">Vendas</th>
+                  <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Lucro</th>
+                  <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden lg:table-cell">CPA Real</th>
                   <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">ROAS</th>
                   <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border w-16"></th>
                 </tr>
@@ -132,7 +134,13 @@ export default function GoogleCampaignsPage() {
                       <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">{formatCompact(c.impressions || 0)}</td>
                       <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">{formatNumber(c.clicks || 0)}</td>
                       <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden lg:table-cell">{ctr.toFixed(2)}%</td>
-                      <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden lg:table-cell">{c.conversions || 0}</td>
+                      <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">{c.real_sales_count || 0}</td>
+                      <td className={`py-2.5 border-b border-border text-base font-medium text-right group-hover:bg-s2 transition-colors px-1 ${((c.real_revenue || 0) - (c.cost || 0)) >= 0 ? "text-success" : "text-destructive"}`}>
+                        {formatBRL((c.real_revenue || 0) - (c.cost || 0))}
+                      </td>
+                      <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden lg:table-cell">
+                        {(c.real_sales_count || 0) > 0 ? formatBRL((c.cost || 0) / c.real_sales_count) : "—"}
+                      </td>
                       <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1"><RoasValue value={c.real_roas || 0} /></td>
                       <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
                         <button className="text-xs text-t4 px-2 py-1 rounded-[5px] border border-border hover:border-primary hover:text-primary transition-colors cursor-pointer">
@@ -143,7 +151,7 @@ export default function GoogleCampaignsPage() {
                   );
                 })}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={10} className="py-8 text-center text-t3 text-sm">Nenhuma campanha</td></tr>
+                  <tr><td colSpan={12} className="py-8 text-center text-t3 text-sm">Nenhuma campanha</td></tr>
                 )}
               </tbody>
             </table>

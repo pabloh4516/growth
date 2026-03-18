@@ -40,6 +40,9 @@ export default function GoogleAdsOverviewPage() {
   const avgCpa = totalClicks > 0 ? totalCost / (filteredCampaigns.reduce((s: number, c: any) => s + (c.conversions || 0), 0) || 1) : 0;
   const roas = totalCost > 0 ? totalRevenue / totalCost : 0;
   const activeCampaigns = filteredCampaigns.filter((c: any) => c.status === "active").length;
+  const totalProfit = totalRevenue - totalCost;
+  const totalSales = filteredCampaigns.reduce((s: number, c: any) => s + (c.real_sales_count || 0), 0);
+  const realCpa = totalSales > 0 ? totalCost / totalSales : 0;
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -94,10 +97,16 @@ export default function GoogleAdsOverviewPage() {
 
       {/* Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <MetricCard
+          label="Lucro"
+          value={formatBRL(totalProfit)}
+          delta={totalProfit > 0 ? "positivo" : totalProfit < 0 ? "negativo" : undefined}
+          deltaType={totalProfit >= 0 ? "up" : "down"}
+          gradient="green"
+        />
+        <MetricCard label="CPA Real" value={realCpa > 0 ? formatBRL(realCpa) : "—"} gradient="amber" />
         <MetricCard label="Cliques" value={formatCompact(totalClicks)} gradient="purple" />
-        <MetricCard label="Impressões" value={formatCompact(totalImpressions)} gradient="blue" />
-        <MetricCard label="CTR" value={`${avgCtr.toFixed(2)}%`} gradient="green" />
-        <MetricCard label="CPA" value={formatBRL(avgCpa)} gradient="amber" />
+        <MetricCard label="CTR" value={`${avgCtr.toFixed(2)}%`} gradient="blue" />
       </div>
 
       {/* Campaigns Summary Table */}
@@ -117,7 +126,10 @@ export default function GoogleAdsOverviewPage() {
                   <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Tipo</th>
                   <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Status</th>
                   <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Investimento</th>
-                  <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden md:table-cell">Conv.</th>
+                  <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden md:table-cell">Vendas</th>
+                  <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden md:table-cell">Receita</th>
+                  <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Lucro</th>
+                  <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden lg:table-cell">CPA Real</th>
                   <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">ROAS</th>
                 </tr>
               </thead>
@@ -146,7 +158,16 @@ export default function GoogleAdsOverviewPage() {
                       {formatBRL(c.cost || 0)}
                     </td>
                     <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">
-                      {c.conversions || 0}
+                      {c.real_sales_count || 0}
+                    </td>
+                    <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">
+                      {formatBRL(c.real_revenue || 0)}
+                    </td>
+                    <td className={`py-2.5 border-b border-border text-base font-medium text-right group-hover:bg-s2 transition-colors px-1 ${((c.real_revenue || 0) - (c.cost || 0)) >= 0 ? "text-success" : "text-destructive"}`}>
+                      {formatBRL((c.real_revenue || 0) - (c.cost || 0))}
+                    </td>
+                    <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden lg:table-cell">
+                      {(c.real_sales_count || 0) > 0 ? formatBRL((c.cost || 0) / c.real_sales_count) : "—"}
                     </td>
                     <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
                       <RoasValue value={c.real_roas || 0} />
@@ -154,7 +175,7 @@ export default function GoogleAdsOverviewPage() {
                   </tr>
                 ))}
                 {filteredCampaigns.length === 0 && (
-                  <tr><td colSpan={6} className="py-8 text-center text-t3 text-sm">Nenhuma campanha encontrada</td></tr>
+                  <tr><td colSpan={9} className="py-8 text-center text-t3 text-sm">Nenhuma campanha encontrada</td></tr>
                 )}
               </tbody>
             </table>
