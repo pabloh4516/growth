@@ -16,7 +16,7 @@ const ALLOWED_ORIGINS = [
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 
-const APP_DOMAIN = Deno.env.get('APP_DOMAIN') || 'growthOS';
+const APP_DOMAIN = Deno.env.get('APP_DOMAIN') || 'growth';
 
 export function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get('origin') || '';
