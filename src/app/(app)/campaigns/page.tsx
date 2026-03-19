@@ -25,7 +25,7 @@ export default function GoogleAdsOverviewPage() {
 
   const activeAccount = selectedAccount
     ? googleAccounts.find((a: any) => a.id === selectedAccount)
-    : googleAccounts[0];
+    : null;
 
   // Filter campaigns by selected account
   const filteredCampaigns = selectedAccount
@@ -59,7 +59,7 @@ export default function GoogleAdsOverviewPage() {
       <PlatformHero
         platform="google"
         name="Google Ads"
-        subtitle={activeAccount?.account_name || activeAccount?.external_id || "Conta conectada"}
+        subtitle={activeAccount?.account_name || `${googleAccounts.length} contas conectadas`}
         stats={[
           { label: "Investimento", value: formatBRL(totalCost) },
           { label: "ROAS Real", value: `${roas.toFixed(1)}x` },
@@ -74,24 +74,36 @@ export default function GoogleAdsOverviewPage() {
               className="flex items-center gap-2 bg-s2 border border-border rounded-sm px-2.5 py-1.5 text-sm text-t2 hover:border-[hsl(var(--border2))] transition-colors cursor-pointer"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_5px_hsl(var(--success))]" />
-              {activeAccount?.account_name || "Selecionar conta"}
+              {activeAccount?.account_name || "Todas as contas"}
               <span className="text-t4 ml-1">▾</span>
             </button>
             {dropdownOpen && (
               <div className="absolute top-full mt-1.5 left-0 bg-s2 border border-[hsl(var(--border2))] rounded-[12px] p-1.5 min-w-[220px] z-50 shadow-[0_8px_32px_rgba(0,0,0,.5)] animate-fade-up">
+                <button
+                  onClick={() => { setSelectedAccount(null); setDropdownOpen(false); }}
+                  className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-sm transition-colors cursor-pointer ${
+                    !selectedAccount ? "bg-purple-dim" : "hover:bg-s3"
+                  }`}
+                >
+                  <div>
+                    <div className="text-base font-medium text-t1">Todas as contas</div>
+                    <div className="text-xs text-t3">{googleAccounts.length} contas</div>
+                  </div>
+                  {!selectedAccount && <span className="ml-auto text-sm text-primary">✓</span>}
+                </button>
                 {googleAccounts.map((acc: any) => (
                   <button
                     key={acc.id}
                     onClick={() => { setSelectedAccount(acc.id); setDropdownOpen(false); }}
                     className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-sm transition-colors cursor-pointer ${
-                      acc.id === (activeAccount?.id) ? "bg-purple-dim" : "hover:bg-s3"
+                      acc.id === selectedAccount ? "bg-purple-dim" : "hover:bg-s3"
                     }`}
                   >
                     <div>
                       <div className="text-base font-medium text-t1">{acc.account_name || acc.external_id}</div>
                       <div className="text-xs text-t3">{acc.external_id}</div>
                     </div>
-                    {acc.id === activeAccount?.id && <span className="ml-auto text-sm text-primary">✓</span>}
+                    {acc.id === selectedAccount && <span className="ml-auto text-sm text-primary">✓</span>}
                   </button>
                 ))}
               </div>
