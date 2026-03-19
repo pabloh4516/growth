@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
@@ -175,8 +175,9 @@ const NAV_SECTIONS: NavSection[] = [
         children: [
           { label: "Visão geral", href: "/campaigns" },
           { label: "Campanhas", href: "/campaigns/list" },
-          { label: "Grupos de anúncio", href: "/campaigns/adgroups" },
-          { label: "Anúncios", href: "/campaigns/ads" },
+          { label: "Conjuntos", href: "/campaigns/list?tab=conjuntos" },
+          { label: "Anúncios", href: "/campaigns/list?tab=anuncios" },
+          { label: "Contas", href: "/campaigns/list?tab=contas" },
           { label: "Palavras-chave", href: "/campaigns/keywords" },
           { label: "Regras automáticas", href: "/campaigns/rules" },
         ],
@@ -266,12 +267,18 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const fullUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
+
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     // Auto-expand section that matches current path
     NAV_SECTIONS.forEach((s) =>
       s.items.forEach((item) => {
-        if (item.children?.some((c) => pathname.startsWith(c.href))) {
+        if (item.children?.some((c) => {
+          const [cPath] = c.href.split("?");
+          return pathname.startsWith(cPath);
+        })) {
           init[item.href] = true;
         }
       })
@@ -281,6 +288,10 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard" || pathname === "/";
+    // Handle hrefs with query params (e.g. /campaigns/list?tab=conjuntos)
+    if (href.includes("?")) {
+      return fullUrl === href;
+    }
     return pathname === href || pathname.startsWith(href + "/");
   };
 
