@@ -51,6 +51,8 @@ import {
   ExternalLink,
   Search,
   Download,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -135,6 +137,32 @@ const typeLabel = (c: any) => {
   return t || "Search";
 };
 
+// ─── Sortable Table Header ────────────────────────────
+function SortTh({ col, label, align = "right", sortCol, sortDir, onSort }: {
+  col: string; label: string; align?: "left" | "right";
+  sortCol: string | null; sortDir: "asc" | "desc"; onSort: (col: string) => void;
+}) {
+  const active = sortCol === col;
+  return (
+    <th
+      className={cn(
+        "text-xs font-medium text-t3 pb-3 uppercase tracking-wide border-b border-border cursor-pointer select-none hover:text-t1 transition-colors",
+        align === "left" ? "text-left" : "text-right"
+      )}
+      onClick={() => onSort(col)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {active ? (
+          sortDir === "asc" ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />
+        ) : (
+          <span className="h-3 w-3" />
+        )}
+      </span>
+    </th>
+  );
+}
+
 // ═══════════════════════════════════════════════════════
 // Main Page
 // ═══════════════════════════════════════════════════════
@@ -173,6 +201,8 @@ export default function CampaignsListPage() {
   const [syncing, setSyncing] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(getDefaultVisibleColumns);
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   // Budget dialog
   const [budgetDialog, setBudgetDialog] = useState<{ id: string; name: string; budget: number } | null>(null);
@@ -188,15 +218,23 @@ export default function CampaignsListPage() {
   const [adGroupSearch, setAdGroupSearch] = useState("");
   const [adSearch, setAdSearch] = useState("");
 
-  // ─── Filtered campaigns ──────────────────────────
+  // ─── Sort helper ─────────────────────────────────
+  const handleSort = (col: string) => {
+    if (sortCol === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir("desc");
+    }
+  };
+
+  // ─── Enriched + Filtered + Sorted campaigns ─────
   const filtered = useMemo(() => {
-    return (campaigns || []).filter((c: any) => {
-      // Search
+    // 1. Filter
+    const list = (campaigns || []).filter((c: any) => {
       if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false;
-      // Status
       if (statusFilter === "active" && c.status !== "active") return false;
       if (statusFilter === "paused" && c.status !== "paused") return false;
-      // Type
       if (typeFilter !== "all") {
         const t = getType(c);
         if (typeFilter === "search" && !t.includes("search")) return false;
@@ -207,7 +245,51 @@ export default function CampaignsListPage() {
       }
       return true;
     });
-  }, [campaigns, search, statusFilter, typeFilter]);
+
+    // 2. Enrich with computed metrics (for sorting)
+    const enriched = list.map((c: any) => {
+      const m = getCampaignMetricsForPeriod(c, days);
+      const sm = salesMetrics[c.id] || { sales: 0, revenue: 0, refunds: 0, refundRevenue: 0 };
+      const netRevenue = sm.revenue - sm.refundRevenue;
+      const profit = netRevenue - m.spend;
+      const roas = m.spend > 0 ? netRevenue / m.spend : 0;
+      const roi = m.spend > 0 ? (profit / m.spend) * 100 : 0;
+      const ctr = m.impressions > 0 ? (m.clicks / m.impressions) * 100 : 0;
+      const cpc = m.clicks > 0 ? m.spend / m.clicks : 0;
+      const cpa = sm.sales > 0 ? m.spend / sm.sales : 0;
+      return { ...c, _m: m, _sm: sm, _netRevenue: netRevenue, _profit: profit, _roas: roas, _roi: roi, _ctr: ctr, _cpc: cpc, _cpa: cpa };
+    });
+
+    // 3. Sort
+    if (!sortCol) return enriched;
+    const sortMap: Record<string, (c: any) => number | string> = {
+      name: (c) => c.name.toLowerCase(),
+      type: (c) => typeLabel(c),
+      status: (c) => c.status,
+      budget: (c) => c.daily_budget || 0,
+      spend: (c) => c._m.spend,
+      sales: (c) => c._sm.sales,
+      revenue: (c) => c._netRevenue,
+      cpa: (c) => c._cpa,
+      lucro: (c) => c._profit,
+      roas: (c) => c._roas,
+      roi: (c) => c._roi,
+      impressions: (c) => c._m.impressions,
+      clicks: (c) => c._m.clicks,
+      ctr: (c) => c._ctr,
+      cpc: (c) => c._cpc,
+    };
+    const getter = sortMap[sortCol];
+    if (!getter) return enriched;
+    return enriched.sort((a: any, b: any) => {
+      const av = getter(a);
+      const bv = getter(b);
+      if (typeof av === "string" && typeof bv === "string") {
+        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      return sortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
+    });
+  }, [campaigns, search, statusFilter, typeFilter, salesMetrics, days, sortCol, sortDir]);
 
   // Filtered ad groups
   const filteredAdGroups = useMemo(() => {
@@ -528,62 +610,54 @@ export default function CampaignsListPage() {
                           <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border w-8">
                             <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
                           </th>
-                          <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Campanha</th>
+                          <SortTh col="name" label="Campanha" align="left" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           {visibleColumns.includes("type") && (
-                            <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Tipo</th>
+                            <SortTh col="type" label="Tipo" align="left" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           )}
                           {visibleColumns.includes("status") && (
-                            <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Status</th>
+                            <SortTh col="status" label="Status" align="left" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           )}
                           {visibleColumns.includes("budget") && (
-                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Orçamento</th>
+                            <SortTh col="budget" label="Orçamento" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           )}
                           {visibleColumns.includes("spend") && (
-                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Investimento</th>
+                            <SortTh col="spend" label="Investimento" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           )}
                           {visibleColumns.includes("sales") && (
-                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Vendas</th>
+                            <SortTh col="sales" label="Vendas" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           )}
                           {visibleColumns.includes("revenue") && (
-                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Receita</th>
+                            <SortTh col="revenue" label="Receita" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           )}
                           {visibleColumns.includes("cpa") && (
-                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">CPA Real</th>
+                            <SortTh col="cpa" label="CPA Real" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           )}
                           {visibleColumns.includes("lucro") && (
-                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Lucro</th>
+                            <SortTh col="lucro" label="Lucro" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           )}
                           {visibleColumns.includes("roas") && (
-                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">ROAS</th>
+                            <SortTh col="roas" label="ROAS" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           )}
                           {visibleColumns.includes("roi") && (
-                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">ROI</th>
+                            <SortTh col="roi" label="ROI" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           )}
                           {visibleColumns.includes("impressions") && (
-                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Impressões</th>
+                            <SortTh col="impressions" label="Impressões" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           )}
                           {visibleColumns.includes("clicks") && (
-                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Cliques</th>
+                            <SortTh col="clicks" label="Cliques" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           )}
                           {visibleColumns.includes("ctr") && (
-                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">CTR</th>
+                            <SortTh col="ctr" label="CTR" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           )}
                           {visibleColumns.includes("cpc") && (
-                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">CPC</th>
+                            <SortTh col="cpc" label="CPC" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                           )}
                           <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border w-10"></th>
                         </tr>
                       </thead>
                       <tbody>
                         {filtered.map((c: any) => {
-                          const metrics = getCampaignMetricsForPeriod(c, days);
-                          const sm = salesMetrics[c.id] || { sales: 0, revenue: 0, refunds: 0, refundRevenue: 0 };
-                          const netRevenue = sm.revenue - sm.refundRevenue;
-                          const profit = netRevenue - metrics.spend;
-                          const roas = metrics.spend > 0 ? netRevenue / metrics.spend : 0;
-                          const roi = metrics.spend > 0 ? (profit / metrics.spend) * 100 : 0;
-                          const ctr = metrics.impressions > 0 ? (metrics.clicks / metrics.impressions) * 100 : 0;
-                          const cpc = metrics.clicks > 0 ? metrics.spend / metrics.clicks : 0;
                           const cellCls = "py-2.5 border-b border-border text-sm text-t2 text-right group-hover:bg-s2 transition-colors px-1";
                           return (
                             <tr key={c.id} className={cn("group", selected.has(c.id) && "bg-primary/5")}>
@@ -608,48 +682,48 @@ export default function CampaignsListPage() {
                                 <td className={cellCls}>{formatBRL(c.daily_budget || 0)}/dia</td>
                               )}
                               {visibleColumns.includes("spend") && (
-                                <td className={cellCls}>{formatBRL(metrics.spend)}</td>
+                                <td className={cellCls}>{formatBRL(c._m.spend)}</td>
                               )}
                               {visibleColumns.includes("sales") && (
                                 <td className={cn(cellCls, "font-medium text-t1")}>
-                                  {sm.sales}
-                                  {sm.refunds > 0 && <span className="text-destructive text-xs ml-1">(-{sm.refunds})</span>}
+                                  {c._sm.sales}
+                                  {c._sm.refunds > 0 && <span className="text-destructive text-xs ml-1">(-{c._sm.refunds})</span>}
                                 </td>
                               )}
                               {visibleColumns.includes("revenue") && (
-                                <td className={cn(cellCls, "font-medium text-success")}>{formatBRL(netRevenue)}</td>
+                                <td className={cn(cellCls, "font-medium text-success")}>{formatBRL(c._netRevenue)}</td>
                               )}
                               {visibleColumns.includes("cpa") && (
                                 <td className={cellCls}>
-                                  {sm.sales > 0 ? formatBRL(metrics.spend / sm.sales) : "—"}
+                                  {c._sm.sales > 0 ? formatBRL(c._cpa) : "—"}
                                 </td>
                               )}
                               {visibleColumns.includes("lucro") && (
-                                <td className={cn(cellCls, "font-medium", profit >= 0 ? "text-success" : "text-destructive")}>
-                                  {formatBRL(profit)}
+                                <td className={cn(cellCls, "font-medium", c._profit >= 0 ? "text-success" : "text-destructive")}>
+                                  {formatBRL(c._profit)}
                                 </td>
                               )}
                               {visibleColumns.includes("roas") && (
                                 <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
-                                  <RoasValue value={roas} />
+                                  <RoasValue value={c._roas} />
                                 </td>
                               )}
                               {visibleColumns.includes("roi") && (
-                                <td className={cn(cellCls, "font-medium", roi >= 0 ? "text-success" : "text-destructive")}>
-                                  {roi.toFixed(0)}%
+                                <td className={cn(cellCls, "font-medium", c._roi >= 0 ? "text-success" : "text-destructive")}>
+                                  {c._roi.toFixed(0)}%
                                 </td>
                               )}
                               {visibleColumns.includes("impressions") && (
-                                <td className={cellCls}>{formatCompact(metrics.impressions)}</td>
+                                <td className={cellCls}>{formatCompact(c._m.impressions)}</td>
                               )}
                               {visibleColumns.includes("clicks") && (
-                                <td className={cellCls}>{formatNumber(metrics.clicks)}</td>
+                                <td className={cellCls}>{formatNumber(c._m.clicks)}</td>
                               )}
                               {visibleColumns.includes("ctr") && (
-                                <td className={cellCls}>{ctr.toFixed(2)}%</td>
+                                <td className={cellCls}>{c._ctr.toFixed(2)}%</td>
                               )}
                               {visibleColumns.includes("cpc") && (
-                                <td className={cellCls}>{formatBRL(cpc)}</td>
+                                <td className={cellCls}>{formatBRL(c._cpc)}</td>
                               )}
                               <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
                                 <DropdownMenu>
@@ -698,6 +772,59 @@ export default function CampaignsListPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* ─── Totals Summary ─── */}
+              {filtered.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {(() => {
+                    const totals = filtered.reduce((acc: any, c: any) => ({
+                      spend: acc.spend + c._m.spend,
+                      sales: acc.sales + c._sm.sales,
+                      refunds: acc.refunds + c._sm.refunds,
+                      revenue: acc.revenue + c._netRevenue,
+                      profit: acc.profit + c._profit,
+                      impressions: acc.impressions + c._m.impressions,
+                      clicks: acc.clicks + c._m.clicks,
+                    }), { spend: 0, sales: 0, refunds: 0, revenue: 0, profit: 0, impressions: 0, clicks: 0 });
+                    const tRoas = totals.spend > 0 ? totals.revenue / totals.spend : 0;
+                    const tCpa = totals.sales > 0 ? totals.spend / totals.sales : 0;
+                    const tCtr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0;
+                    return (
+                      <>
+                        <div className="bg-s1 border border-border rounded-lg p-3">
+                          <div className="text-xs text-t4 uppercase tracking-wide">Investimento</div>
+                          <div className="text-lg font-semibold text-t1 mt-1">{formatBRL(totals.spend)}</div>
+                        </div>
+                        <div className="bg-s1 border border-border rounded-lg p-3">
+                          <div className="text-xs text-t4 uppercase tracking-wide">Vendas</div>
+                          <div className="text-lg font-semibold text-t1 mt-1">
+                            {totals.sales}
+                            {totals.refunds > 0 && <span className="text-destructive text-sm ml-1">(-{totals.refunds})</span>}
+                          </div>
+                        </div>
+                        <div className="bg-s1 border border-border rounded-lg p-3">
+                          <div className="text-xs text-t4 uppercase tracking-wide">Receita</div>
+                          <div className="text-lg font-semibold text-success mt-1">{formatBRL(totals.revenue)}</div>
+                        </div>
+                        <div className="bg-s1 border border-border rounded-lg p-3">
+                          <div className="text-xs text-t4 uppercase tracking-wide">Lucro</div>
+                          <div className={cn("text-lg font-semibold mt-1", totals.profit >= 0 ? "text-success" : "text-destructive")}>
+                            {formatBRL(totals.profit)}
+                          </div>
+                        </div>
+                        <div className="bg-s1 border border-border rounded-lg p-3">
+                          <div className="text-xs text-t4 uppercase tracking-wide">ROAS</div>
+                          <div className="mt-1"><RoasValue value={tRoas} /></div>
+                        </div>
+                        <div className="bg-s1 border border-border rounded-lg p-3">
+                          <div className="text-xs text-t4 uppercase tracking-wide">CPA Real</div>
+                          <div className="text-lg font-semibold text-t1 mt-1">{totals.sales > 0 ? formatBRL(tCpa) : "—"}</div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
             </>
           )}
 
