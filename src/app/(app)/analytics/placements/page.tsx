@@ -5,8 +5,40 @@ import { useMetricsByPlacement } from "@/lib/hooks/use-supabase-data";
 import { formatBRL, formatNumber, formatCompact } from "@/lib/utils";
 import { MetricCard } from "@/components/shared/metric-card";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataTable } from "@/components/shared/data-table";
+import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { type ColumnDef } from "@tanstack/react-table";
+
+const columns: ColumnDef<any, any>[] = [
+  { accessorKey: "placement", header: "Placement", cell: ({ row }) => <span className="font-medium text-t1 max-w-[300px] truncate block">{row.original.placement || "—"}</span> },
+  { accessorKey: "impressions", header: "Impressoes", cell: ({ row }) => <span>{formatNumber(row.original.impressions || 0)}</span> },
+  { accessorKey: "clicks", header: "Cliques", cell: ({ row }) => <span>{formatNumber(row.original.clicks || 0)}</span> },
+  {
+    id: "ctr",
+    header: "CTR",
+    accessorFn: (row: any) => row.impressions > 0 ? (row.clicks / row.impressions) * 100 : 0,
+    cell: ({ row }) => {
+      const ctr = row.original.impressions > 0 ? ((row.original.clicks || 0) / row.original.impressions) * 100 : 0;
+      return <span>{ctr.toFixed(2)}%</span>;
+    },
+  },
+  { accessorKey: "cost", header: "Custo", cell: ({ row }) => <span>{formatBRL(row.original.cost || 0)}</span> },
+  { accessorKey: "conversions", header: "Conv.", cell: ({ row }) => <span>{row.original.conversions || 0}</span> },
+  {
+    id: "roas",
+    header: "ROAS",
+    accessorFn: (row: any) => row.cost > 0 ? (row.revenue || 0) / row.cost : 0,
+    cell: ({ row }) => {
+      const roas = row.original.cost > 0 ? (row.original.revenue || 0) / row.original.cost : 0;
+      return (
+        <span className={`font-semibold ${roas >= 2 ? "text-success" : roas >= 1 ? "text-warning" : "text-destructive"}`}>
+          {roas.toFixed(2)}x
+        </span>
+      );
+    },
+  },
+];
 
 export default function PlacementsPage() {
   const { data: placements, isLoading } = useMetricsByPlacement();
@@ -26,7 +58,6 @@ export default function PlacementsPage() {
   }, [placements]);
 
   const avgCtr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0;
-  const overallRoas = totals.cost > 0 ? totals.revenue / totals.cost : 0;
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -44,64 +75,7 @@ export default function PlacementsPage() {
 
       {/* Placements table */}
       {placements && placements.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Placements</CardTitle>
-              <span className="text-sm text-t3">{placements.length} posicionamentos</span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Placement</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Impressoes</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Cliques</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">CTR</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Custo</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Conv.</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">ROAS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(placements as any[]).map((p: any, idx: number) => {
-                    const ctr = p.impressions > 0 ? ((p.clicks || 0) / p.impressions) * 100 : 0;
-                    const roas = p.cost > 0 ? (p.revenue || 0) / p.cost : 0;
-                    return (
-                      <tr key={idx} className="group cursor-default">
-                        <td className="py-2.5 border-b border-border text-base text-t1 font-medium group-hover:bg-s2 transition-colors px-1 max-w-[300px] truncate">
-                          {p.placement || "—"}
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          {formatNumber(p.impressions || 0)}
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          {formatNumber(p.clicks || 0)}
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          {ctr.toFixed(2)}%
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          {formatBRL(p.cost || 0)}
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          {p.conversions || 0}
-                        </td>
-                        <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
-                          <span className={`text-base font-semibold ${roas >= 2 ? "text-success" : roas >= 1 ? "text-warning" : "text-destructive"}`}>
-                            {roas.toFixed(2)}x
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        <DataTable data={placements as any[]} columns={columns} searchPlaceholder="Buscar placement..." />
       ) : (
         <Card>
           <CardContent className="py-0">

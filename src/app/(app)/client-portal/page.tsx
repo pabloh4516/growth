@@ -2,8 +2,9 @@
 
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useDashboardMetrics } from "@/lib/hooks/use-supabase-data";
+import { formatBRL, formatCompact } from "@/lib/utils";
+import { MetricCard } from "@/components/shared/metric-card";
 import { Card, CardContent } from "@/components/ui/card";
-import { EmptyState } from "@/components/shared/empty-state";
 import { Loader2 } from "lucide-react";
 
 export default function ClientPortalPage() {
@@ -19,13 +20,16 @@ export default function ClientPortalPage() {
         <p className="text-sm text-t3">Dashboard simplificado para {currentOrg?.name || "o cliente"}</p>
       </div>
 
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MetricCard label="Impressoes" value={formatCompact(metrics?.impressions ?? 0)} gradient="purple" />
+        <MetricCard label="Cliques" value={formatCompact(metrics?.clicks ?? 0)} gradient="blue" />
+        <MetricCard label="Investimento" value={formatBRL(metrics?.cost ?? 0)} gradient="amber" />
+        <MetricCard label="ROAS" value={`${(metrics?.roas ?? 0).toFixed(2)}x`} gradient="green" />
+      </div>
+
       <Card>
-        <CardContent>
-          <EmptyState
-            icon="\ud83d\udcca"
-            title="Portal do Cliente"
-            subtitle="Dashboard simplificado com relatorios e aprovacoes para clientes. Em breve."
-          />
+        <CardContent className="py-8 text-center text-sm text-t3">
+          Dashboard simplificado para clientes. Relatorios e aprovacoes em breve.
         </CardContent>
       </Card>
     </div>

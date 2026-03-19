@@ -10,13 +10,14 @@ import { formatBRL } from "@/lib/utils";
 import { MetricCard } from "@/components/shared/metric-card";
 import { StatusPill } from "@/components/shared/status-pill";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Badge } from "@/components/ui/badge";
+import { DataTable } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { type ColumnDef } from "@tanstack/react-table";
 
 const supabase = createClient();
 
@@ -26,6 +27,32 @@ const TYPE_LABELS: Record<string, { label: string; variant: "active" | "paused" 
   operational_cost: { label: "Operacional", variant: "review" },
   refund: { label: "Reembolso", variant: "paused" },
 };
+
+const columns: ColumnDef<any, any>[] = [
+  { accessorKey: "date", header: "Data", cell: ({ row }) => <span className="text-sm">{new Date(row.original.date).toLocaleDateString("pt-BR")}</span> },
+  {
+    accessorKey: "type",
+    header: "Tipo",
+    cell: ({ row }) => {
+      const t = TYPE_LABELS[row.original.type] || { label: row.original.type, variant: "paused" as const };
+      return <StatusPill variant={t.variant} label={t.label} />;
+    },
+  },
+  { accessorKey: "category", header: "Categoria", meta: { className: "hidden md:table-cell" }, cell: ({ row }) => <span>{row.original.category || "—"}</span> },
+  { accessorKey: "description", header: "Descricao", meta: { className: "hidden md:table-cell" }, cell: ({ row }) => <span className="max-w-[200px] truncate block">{row.original.description || "—"}</span> },
+  {
+    accessorKey: "amount",
+    header: "Valor",
+    cell: ({ row }) => {
+      const isRevenue = row.original.type === "revenue";
+      return (
+        <span className={`font-mono font-semibold ${isRevenue ? "text-success" : "text-destructive"}`}>
+          {isRevenue ? "+" : "-"}{formatBRL(Math.abs(row.original.amount || 0))}
+        </span>
+      );
+    },
+  },
+];
 
 export default function FinancialPage() {
   const orgId = useOrgId();
@@ -82,30 +109,10 @@ export default function FinancialPage() {
 
       {/* Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <MetricCard
-          label="Receita Total"
-          value={formatBRL(revenue)}
-          gradient="green"
-          delta={revenue > 0 ? "receita" : undefined}
-          deltaType="up"
-        />
-        <MetricCard
-          label="Custos Ads"
-          value={formatBRL(effectiveAdSpend)}
-          gradient="amber"
-        />
-        <MetricCard
-          label="Custos Operacionais"
-          value={formatBRL(costs > effectiveAdSpend ? costs - effectiveAdSpend : 0)}
-          gradient="blue"
-        />
-        <MetricCard
-          label="Lucro Liquido"
-          value={formatBRL(profit)}
-          delta={`${margin}% margem`}
-          deltaType={profit >= 0 ? "up" : "down"}
-          gradient="purple"
-        />
+        <MetricCard label="Receita Total" value={formatBRL(revenue)} gradient="green" delta={revenue > 0 ? "receita" : undefined} deltaType="up" />
+        <MetricCard label="Custos Ads" value={formatBRL(effectiveAdSpend)} gradient="amber" />
+        <MetricCard label="Custos Operacionais" value={formatBRL(costs > effectiveAdSpend ? costs - effectiveAdSpend : 0)} gradient="blue" />
+        <MetricCard label="Lucro Liquido" value={formatBRL(profit)} delta={`${margin}% margem`} deltaType={profit >= 0 ? "up" : "down"} gradient="purple" />
       </div>
 
       {/* Create Form */}
@@ -154,55 +161,12 @@ export default function FinancialPage() {
         </Card>
       )}
 
-      {/* Financial Records Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Registros Financeiros</CardTitle>
-            <span className="text-sm text-t3">{records?.length || 0} registros</span>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {records && records.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Data</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Tipo</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border hidden md:table-cell">Categoria</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border hidden md:table-cell">Descricao</th>
-                    <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.map((record: any) => {
-                    const t = TYPE_LABELS[record.type] || { label: record.type, variant: "paused" as const };
-                    const isRevenue = record.type === "revenue";
-                    return (
-                      <tr key={record.id} className="group">
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          {new Date(record.date).toLocaleDateString("pt-BR")}
-                        </td>
-                        <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
-                          <StatusPill variant={t.variant} label={t.label} />
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">
-                          {record.category || "—"}
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1 hidden md:table-cell max-w-[200px] truncate">
-                          {record.description || "—"}
-                        </td>
-                        <td className={`py-2.5 border-b border-border text-base font-mono font-semibold text-right group-hover:bg-s2 transition-colors px-1 ${isRevenue ? "text-success" : "text-destructive"}`}>
-                          {isRevenue ? "+" : "-"}{formatBRL(Math.abs(record.amount || 0))}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
+      {/* Financial Records */}
+      {records && records.length > 0 ? (
+        <DataTable data={records} columns={columns} searchPlaceholder="Buscar registros..." />
+      ) : (
+        <Card>
+          <CardContent>
             <EmptyState
               icon="💰"
               title="Nenhum registro financeiro"
@@ -214,9 +178,9 @@ export default function FinancialPage() {
                 </Button>
               }
             />
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -9,14 +9,16 @@ import { createClient } from "@/lib/supabase/client";
 import { MetricCard } from "@/components/shared/metric-card";
 import { StatusPill } from "@/components/shared/status-pill";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DataTable } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Users, Kanban, BarChart3, Loader2, Plus, GripVertical } from "lucide-react";
-import { DndContext, closestCenter, DragEndEvent, DragOverlay, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, closestCenter, DragEndEvent, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { type ColumnDef } from "@tanstack/react-table";
 
 const supabase = createClient();
 
@@ -140,6 +142,44 @@ export default function CRMPage() {
     { id: "negotiation", name: "Negociacao" }, { id: "won", name: "Ganho" },
   ];
 
+  const contactColumns: ColumnDef<any, any>[] = [
+    {
+      accessorKey: "name",
+      header: "Contato",
+      cell: ({ row }) => {
+        const idx = contacts?.indexOf(row.original) || 0;
+        return (
+          <div className="flex items-center gap-2.5">
+            <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold", AVATAR_COLORS[idx % AVATAR_COLORS.length])}>
+              {getInitials(row.original.name)}
+            </div>
+            <span className="font-medium text-t1">{row.original.name || "---"}</span>
+          </div>
+        );
+      },
+    },
+    { accessorKey: "email", header: "Email", cell: ({ row }) => <span className="text-sm text-t3">{row.original.email}</span> },
+    {
+      accessorKey: "lifecycle_stage",
+      header: "Estagio",
+      cell: ({ row }) => {
+        const stage = row.original.lifecycle_stage || "lead";
+        const pill = STAGE_PILL_MAP[stage] || { variant: "paused" as const, label: stage };
+        return <StatusPill variant={pill.variant} label={pill.label} />;
+      },
+    },
+    {
+      accessorKey: "lead_score",
+      header: "Score",
+      cell: ({ row }) => {
+        const score = row.original.lead_score || 0;
+        return <span className={cn("font-mono font-semibold", score >= 70 ? "text-success" : score >= 40 ? "text-warning" : "text-t3")}>{score}</span>;
+      },
+    },
+    { accessorKey: "predicted_ltv", header: "LTV Previsto", cell: ({ row }) => <span className="font-mono text-sm">{formatBRL(row.original.predicted_ltv || 0)}</span> },
+    { accessorKey: "source", header: "Fonte", cell: ({ row }) => <span className="text-xs text-t3">{row.original.source || "---"}</span> },
+  ];
+
   return (
     <div className="space-y-5 animate-fade-up">
       {/* Metric cards */}
@@ -182,67 +222,22 @@ export default function CRMPage() {
 
       {/* Contacts tab */}
       {tab === "contacts" && (
-        <Card>
-          <CardHeader><CardTitle>Contatos</CardTitle></CardHeader>
-          <CardContent>
-            {!contacts || contacts.length === 0 ? (
-              <EmptyState icon="👤" title="Nenhum contato ainda" subtitle="Crie seu primeiro contato para comecar a gerenciar seu CRM." action={<Button size="sm" onClick={() => setCreatingContact(true)}>Criar Contato</Button>} />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr>
-                      <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Contato</th>
-                      <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Email</th>
-                      <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Estagio</th>
-                      <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Score</th>
-                      <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">LTV Previsto</th>
-                      <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Fonte</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {contacts.map((contact: any, idx: number) => {
-                      const stage = contact.lifecycle_stage || "lead";
-                      const pill = STAGE_PILL_MAP[stage] || { variant: "paused" as const, label: stage };
-                      const score = contact.lead_score || 0;
-                      return (
-                        <tr
-                          key={contact.id}
-                          className="group cursor-pointer"
-                          onClick={() => router.push(`/crm/contacts/${contact.id}`)}
-                        >
-                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                            <div className="flex items-center gap-2.5">
-                              <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold", AVATAR_COLORS[idx % AVATAR_COLORS.length])}>
-                                {getInitials(contact.name)}
-                              </div>
-                              <span className="font-medium text-t1">{contact.name || "---"}</span>
-                            </div>
-                          </td>
-                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                            <span className="text-sm text-t3">{contact.email}</span>
-                          </td>
-                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                            <StatusPill variant={pill.variant} label={pill.label} />
-                          </td>
-                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                            <span className={cn("font-mono font-semibold", score >= 70 ? "text-success" : score >= 40 ? "text-warning" : "text-t3")}>{score}</span>
-                          </td>
-                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                            <span className="font-mono text-sm">{formatBRL(contact.predicted_ltv || 0)}</span>
-                          </td>
-                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                            <span className="text-xs text-t3">{contact.source || "---"}</span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <>
+          {!contacts || contacts.length === 0 ? (
+            <Card>
+              <CardContent>
+                <EmptyState icon="👤" title="Nenhum contato ainda" subtitle="Crie seu primeiro contato para comecar a gerenciar seu CRM." action={<Button size="sm" onClick={() => setCreatingContact(true)}>Criar Contato</Button>} />
+              </CardContent>
+            </Card>
+          ) : (
+            <DataTable
+              data={contacts}
+              columns={contactColumns}
+              searchPlaceholder="Buscar contatos..."
+              onRowClick={(row: any) => router.push(`/crm/contacts/${row.id}`)}
+            />
+          )}
+        </>
       )}
 
       {/* Pipeline tab */}

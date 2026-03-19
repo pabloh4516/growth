@@ -5,8 +5,36 @@ import { useMetricsByGeo } from "@/lib/hooks/use-supabase-data";
 import { formatBRL, formatNumber, formatCompact } from "@/lib/utils";
 import { MetricCard } from "@/components/shared/metric-card";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataTable } from "@/components/shared/data-table";
+import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { type ColumnDef } from "@tanstack/react-table";
+
+const columns: ColumnDef<any, any>[] = [
+  { accessorKey: "region", header: "Estado / Regiao", cell: ({ row }) => <span className="font-medium text-t1">{row.original.region || row.original.state || "—"}</span> },
+  { accessorKey: "impressions", header: "Impressoes", cell: ({ row }) => <span>{formatNumber(row.original.impressions || 0)}</span> },
+  { accessorKey: "clicks", header: "Cliques", cell: ({ row }) => <span>{formatNumber(row.original.clicks || 0)}</span> },
+  {
+    id: "ctr",
+    header: "CTR",
+    accessorFn: (row: any) => row.impressions > 0 ? (row.clicks / row.impressions) * 100 : 0,
+    cell: ({ row }) => {
+      const ctr = row.original.impressions > 0 ? (row.original.clicks / row.original.impressions) * 100 : 0;
+      return <span>{ctr.toFixed(2)}%</span>;
+    },
+  },
+  { accessorKey: "cost", header: "Custo", cell: ({ row }) => <span>{formatBRL(row.original.cost || 0)}</span> },
+  { accessorKey: "conversions", header: "Conversoes", cell: ({ row }) => <span>{row.original.conversions || 0}</span> },
+  {
+    id: "cpa",
+    header: "CPA",
+    accessorFn: (row: any) => row.conversions > 0 ? row.cost / row.conversions : 0,
+    cell: ({ row }) => {
+      const cpa = row.original.conversions > 0 ? row.original.cost / row.original.conversions : 0;
+      return <span>{cpa > 0 ? formatBRL(cpa) : "—"}</span>;
+    },
+  },
+];
 
 export default function GeoPage() {
   const { data: geoData, isLoading } = useMetricsByGeo();
@@ -42,62 +70,7 @@ export default function GeoPage() {
 
       {/* Geo table */}
       {geoData && geoData.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Performance por Regiao</CardTitle>
-              <span className="text-sm text-t3">{geoData.length} regioes</span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Estado / Regiao</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Impressoes</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Cliques</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">CTR</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Custo</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Conversoes</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">CPA</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(geoData as any[]).map((g: any, idx: number) => {
-                    const ctr = g.impressions > 0 ? (g.clicks / g.impressions) * 100 : 0;
-                    const cpa = g.conversions > 0 ? g.cost / g.conversions : 0;
-                    return (
-                      <tr key={idx} className="group cursor-default">
-                        <td className="py-2.5 border-b border-border text-base text-t1 font-medium group-hover:bg-s2 transition-colors px-1">
-                          {g.region || g.state || "—"}
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          {formatNumber(g.impressions || 0)}
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          {formatNumber(g.clicks || 0)}
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          {ctr.toFixed(2)}%
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          {formatBRL(g.cost || 0)}
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          {g.conversions || 0}
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          {cpa > 0 ? formatBRL(cpa) : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        <DataTable data={geoData as any[]} columns={columns} searchPlaceholder="Buscar estado..." />
       ) : (
         <Card>
           <CardContent className="py-0">

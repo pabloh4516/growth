@@ -7,9 +7,11 @@ import { useOrgId } from "@/lib/hooks/use-org";
 import { formatBRL, formatNumber, formatCompact } from "@/lib/utils";
 import { MetricCard } from "@/components/shared/metric-card";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataTable } from "@/components/shared/data-table";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
+import { type ColumnDef } from "@tanstack/react-table";
 
 const supabase = createClient();
 
@@ -20,11 +22,26 @@ const SEGMENT_LABELS: Record<string, string> = {
   inativo: "Inativo (90d+)",
 };
 
+const segmentColumns: ColumnDef<any, any>[] = [
+  { accessorKey: "segment", header: "Segmento", cell: ({ row }) => <span className="font-medium text-t1">{SEGMENT_LABELS[row.original.segment] || row.original.segment}</span> },
+  { accessorKey: "avg_ltv", header: "LTV Medio", cell: ({ row }) => <span>{formatBRL(row.original.avg_ltv || 0)}</span> },
+  { accessorKey: "contact_count", header: "Clientes", cell: ({ row }) => <span>{formatNumber(row.original.contact_count || 0)}</span> },
+  { accessorKey: "avg_purchase_frequency", header: "Freq. Compra", cell: ({ row }) => <span>{(row.original.avg_purchase_frequency || 0).toFixed(1)}x</span> },
+  { accessorKey: "avg_ticket", header: "Ticket Medio", cell: ({ row }) => <span>{formatBRL(row.original.avg_ticket || 0)}</span> },
+];
+
+const customerColumns: ColumnDef<any, any>[] = [
+  { accessorKey: "email", header: "Cliente", cell: ({ row }) => <span className="font-medium text-t1 max-w-[250px] truncate block">{row.original.email}</span> },
+  { accessorKey: "total_revenue", header: "Receita Total", cell: ({ row }) => <span className="font-semibold text-success">{formatBRL(row.original.total_revenue)}</span> },
+  { accessorKey: "purchase_count", header: "Compras", cell: ({ row }) => <span>{row.original.purchase_count}</span> },
+  { accessorKey: "avg_ticket", header: "Ticket Medio", cell: ({ row }) => <span>{formatBRL(row.original.avg_ticket)}</span> },
+  { accessorKey: "segment", header: "Segmento", cell: ({ row }) => <span className="text-xs capitalize">{SEGMENT_LABELS[row.original.segment] || row.original.segment}</span> },
+];
+
 export default function LTVPage() {
   const orgId = useOrgId();
   const [activeTab, setActiveTab] = useState("segments");
 
-  // Try ltv_by_segment table first (populated by cron), fallback to real-time calc from utmify_sales
   const { data: segments, isLoading: segmentsLoading } = useQuery({
     queryKey: ["ltv-segments", orgId],
     queryFn: async () => {
@@ -35,7 +52,6 @@ export default function LTVPage() {
     enabled: !!orgId,
   });
 
-  // Real-time calculation from utmify_sales as primary/fallback
   const { data: customerData, isLoading: customersLoading } = useQuery({
     queryKey: ["ltv-customers", orgId],
     queryFn: async () => {
@@ -47,7 +63,6 @@ export default function LTVPage() {
 
       if (error || !data || data.length === 0) return { customers: [], segments: [] };
 
-      // Group by customer
       const byCustomer: Record<string, { total_revenue: number; purchase_count: number; dates: string[] }> = {};
       data.forEach((s) => {
         const email = s.customer_email || "unknown";
@@ -73,7 +88,6 @@ export default function LTVPage() {
         };
       }).sort((a, b) => b.total_revenue - a.total_revenue);
 
-      // Calculate segments from customer data
       const segMap: Record<string, { total_ltv: number; count: number; total_purchases: number; total_revenue: number }> = {};
       customers.forEach((c) => {
         if (!segMap[c.segment]) segMap[c.segment] = { total_ltv: 0, count: 0, total_purchases: 0, total_revenue: 0 };
@@ -148,70 +162,11 @@ export default function LTVPage() {
 
         <TabsContent value="segments">
           {displaySegments.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>LTV por Segmento</CardTitle>
-                  <span className="text-sm text-t3">{displaySegments.length} segmentos</span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr>
-                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Segmento</th>
-                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">LTV Medio</th>
-                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Clientes</th>
-                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Freq. Compra</th>
-                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Ticket Medio</th>
-                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">% do Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displaySegments.map((s: any) => {
-                        const pct = totalCustomers > 0 ? ((s.contact_count || 0) / totalCustomers) * 100 : 0;
-                        return (
-                          <tr key={s.segment} className="group cursor-default">
-                            <td className="py-2.5 border-b border-border text-base text-t1 font-medium group-hover:bg-s2 transition-colors px-1">
-                              {SEGMENT_LABELS[s.segment] || s.segment}
-                            </td>
-                            <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                              {formatBRL(s.avg_ltv || 0)}
-                            </td>
-                            <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                              {formatNumber(s.contact_count || 0)}
-                            </td>
-                            <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                              {(s.avg_purchase_frequency || 0).toFixed(1)}x
-                            </td>
-                            <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                              {formatBRL(s.avg_ticket || 0)}
-                            </td>
-                            <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
-                              <div className="flex items-center gap-2">
-                                <div className="w-[50px] h-[3px] bg-s3 rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
-                                </div>
-                                <span className="text-base text-t2">{pct.toFixed(1)}%</span>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            <DataTable data={displaySegments} columns={segmentColumns} searchPlaceholder="Buscar segmento..." />
           ) : (
             <Card>
               <CardContent className="py-0">
-                <EmptyState
-                  icon="💰"
-                  title="Sem dados de segmentos"
-                  subtitle="Os segmentos de LTV aparecerão apos vendas confirmadas no checkout."
-                />
+                <EmptyState icon="💰" title="Sem dados de segmentos" subtitle="Os segmentos de LTV aparecerão apos vendas confirmadas no checkout." />
               </CardContent>
             </Card>
           )}
@@ -219,58 +174,11 @@ export default function LTVPage() {
 
         <TabsContent value="customers">
           {displayCustomers.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Top Clientes por Receita</CardTitle>
-                  <span className="text-sm text-t3">{displayCustomers.length} clientes</span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr>
-                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Cliente</th>
-                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Receita Total</th>
-                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Compras</th>
-                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Ticket Medio</th>
-                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Segmento</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displayCustomers.map((c: any, idx: number) => (
-                        <tr key={idx} className="group cursor-default">
-                          <td className="py-2.5 border-b border-border text-base text-t1 font-medium group-hover:bg-s2 transition-colors px-1 max-w-[250px] truncate">
-                            {c.email}
-                          </td>
-                          <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
-                            <span className="text-base font-semibold text-success">{formatBRL(c.total_revenue)}</span>
-                          </td>
-                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                            {c.purchase_count}
-                          </td>
-                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                            {formatBRL(c.avg_ticket)}
-                          </td>
-                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                            <span className="text-xs capitalize">{SEGMENT_LABELS[c.segment] || c.segment}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            <DataTable data={displayCustomers} columns={customerColumns} searchPlaceholder="Buscar cliente..." />
           ) : (
             <Card>
               <CardContent className="py-0">
-                <EmptyState
-                  icon="👥"
-                  title="Sem dados de clientes"
-                  subtitle="Os clientes aparecerão apos vendas confirmadas no checkout."
-                />
+                <EmptyState icon="👥" title="Sem dados de clientes" subtitle="Os clientes aparecerão apos vendas confirmadas no checkout." />
               </CardContent>
             </Card>
           )}

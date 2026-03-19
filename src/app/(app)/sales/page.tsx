@@ -7,14 +7,15 @@ import { formatBRL, cn } from "@/lib/utils";
 import { MetricCard } from "@/components/shared/metric-card";
 import { StatusPill } from "@/components/shared/status-pill";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataTable } from "@/components/shared/data-table";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, AlertTriangle, HelpCircle, RefreshCw } from "lucide-react";
+import { Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { toast } from "sonner";
+import { type ColumnDef } from "@tanstack/react-table";
 
 const STATUS_PILL_MAP: Record<string, { variant: "active" | "paused" | "learning" | "review"; label: string }> = {
   paid: { variant: "active", label: "Pago" },
@@ -27,6 +28,44 @@ const STATUS_PILL_MAP: Record<string, { variant: "active" | "paused" | "learning
 type QuickFilter = "all" | "unmatched" | "paid" | "pending";
 
 const supabase = createClient();
+
+const columns: ColumnDef<any, any>[] = [
+  { accessorKey: "created_at", header: "Data", cell: ({ row }) => <span className="text-xs text-t3">{new Date(row.original.created_at).toLocaleDateString("pt-BR")}</span> },
+  { accessorKey: "order_id", header: "Pedido", cell: ({ row }) => <span className="font-mono text-xs">{row.original.order_id}</span> },
+  { accessorKey: "customer_email", header: "Cliente", cell: ({ row }) => <span className="text-sm truncate max-w-[180px] block">{row.original.customer_email || "---"}</span> },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => {
+      const status = STATUS_PILL_MAP[row.original.status] || { variant: "paused" as const, label: row.original.status };
+      return <StatusPill variant={status.variant} label={status.label} />;
+    },
+  },
+  { accessorKey: "revenue", header: "Valor", cell: ({ row }) => <span className="font-mono font-semibold text-t1">{formatBRL(row.original.revenue || 0)}</span> },
+  { accessorKey: "utm_source", header: "UTM Source", meta: { className: "hidden md:table-cell" }, cell: ({ row }) => <span className="text-xs text-t3">{row.original.utm_source || "—"}</span> },
+  { accessorKey: "utm_campaign", header: "UTM Campaign", meta: { className: "hidden md:table-cell" }, cell: ({ row }) => <span className="text-xs text-t3 truncate max-w-[120px] block">{row.original.utm_campaign || "—"}</span> },
+  {
+    accessorKey: "campaigns",
+    header: "Campanha",
+    cell: ({ row }) => (
+      <span className={cn("text-sm", row.original.campaigns?.name ? "text-t1" : "text-t3")}>
+        {row.original.campaigns?.name || "Sem match"}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "match_confidence",
+    header: "Confianca",
+    cell: ({ row }) => {
+      const conf = row.original.match_confidence || 0;
+      return (
+        <span className={cn("font-mono text-xs", conf >= 0.8 ? "text-success" : conf >= 0.5 ? "text-warning" : "text-t3")}>
+          {(conf * 100).toFixed(0)}%
+        </span>
+      );
+    },
+  },
+];
 
 export default function SalesPage() {
   const orgId = useOrgId();
@@ -136,77 +175,15 @@ export default function SalesPage() {
       </div>
 
       {/* Sales table */}
-      <Card>
-        <CardHeader><CardTitle>Vendas</CardTitle></CardHeader>
-        <CardContent>
-          {filteredSales.length === 0 ? (
+      {filteredSales.length === 0 ? (
+        <Card>
+          <CardContent>
             <EmptyState icon="🛒" title="Nenhuma venda encontrada" subtitle="As vendas aparecerao aqui quando forem recebidas via webhook." />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Data</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Pedido</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Cliente</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Status</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Valor</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Campanha</th>
-                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex items-center gap-1 cursor-help">
-                            Confianca
-                            <HelpCircle className="h-3 w-3 text-t3" />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-[200px]">
-                          <p className="text-xs">Indica o grau de certeza da vinculacao entre a venda e a campanha.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSales.map((sale: any) => {
-                    const status = STATUS_PILL_MAP[sale.status] || { variant: "paused" as const, label: sale.status };
-                    const conf = sale.match_confidence || 0;
-                    return (
-                      <tr key={sale.id} className="group">
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          <span className="text-xs text-t3">{new Date(sale.created_at).toLocaleDateString("pt-BR")}</span>
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          <span className="font-mono text-xs">{sale.order_id}</span>
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          <span className="text-sm truncate max-w-[180px] block">{sale.customer_email || "---"}</span>
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          <StatusPill variant={status.variant} label={status.label} />
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          <span className="font-mono font-semibold text-t1">{formatBRL(sale.revenue || 0)}</span>
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          <span className={cn("text-sm", sale.campaigns?.name ? "text-t1" : "text-t3")}>
-                            {sale.campaigns?.name || "Sem match"}
-                          </span>
-                        </td>
-                        <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                          <span className={cn("font-mono text-xs", conf >= 0.8 ? "text-success" : conf >= 0.5 ? "text-warning" : "text-t3")}>
-                            {(conf * 100).toFixed(0)}%
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : (
+        <DataTable data={filteredSales} columns={columns} searchPlaceholder="Buscar por pedido, email ou campanha..." />
+      )}
     </div>
   );
 }
