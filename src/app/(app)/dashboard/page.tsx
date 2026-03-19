@@ -8,7 +8,6 @@ import { usePeriodStore } from "@/lib/hooks/use-period";
 import { createClient } from "@/lib/supabase/client";
 import { formatBRL, formatCompact } from "@/lib/utils";
 import { MetricCard } from "@/components/shared/metric-card";
-import { AgentFeedItem } from "@/components/shared/agent-feed-item";
 import { StatusPill } from "@/components/shared/status-pill";
 import { RoasValue } from "@/components/shared/roas-value";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,24 +46,6 @@ function useSalesFromCheckout(days: number) {
   });
 }
 
-function useAIDecisions() {
-  const orgId = useOrgId();
-  return useQuery({
-    queryKey: ["ai-decisions", orgId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("ai_decisions")
-        .select("*")
-        .eq("organization_id", orgId!)
-        .order("created_at", { ascending: false })
-        .limit(5);
-      return data || [];
-    },
-    enabled: !!orgId,
-    refetchInterval: 5 * 60 * 1000,
-  });
-}
-
 /* ── Page ── */
 
 export default function DashboardPage() {
@@ -76,7 +57,6 @@ export default function DashboardPage() {
   const { data: salesByC } = useSalesMetricsByCampaign(days);
   const salesMetrics = salesByC || {};
   const { data: insights } = useInsights();
-  const { data: aiDecisions } = useAIDecisions();
   const { data: contacts } = useContacts();
 
   const totalCost = metrics?.cost ?? 0;
@@ -143,92 +123,48 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* ── Row: Chart + Agent Feed ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.55fr_1fr] gap-3">
-
-        {/* Bar chart — Investimento diário */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Investimento vs Receita</CardTitle>
-              <span className="text-sm text-t3 cursor-pointer hover:text-primary transition-colors" onClick={() => queryClient.invalidateQueries()}>
-                Atualizar
-              </span>
+      {/* ── Chart: Investimento vs Receita ── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Investimento vs Receita</CardTitle>
+            <span className="text-sm text-t3 cursor-pointer hover:text-primary transition-colors" onClick={() => queryClient.invalidateQueries()}>
+              Atualizar
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {dailyChart.length > 0 ? (
+            <div className="h-[180px] md:h-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={dailyChart}>
+                  <defs>
+                    <linearGradient id="gradInvest" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8B7FFF" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#8B7FFF" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradReceita" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#29D98A" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#29D98A" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                  <XAxis dataKey="day" tick={{ fill: "#50506A", fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: "#50506A", fontSize: 9 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#14141E", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", fontSize: "12px", color: "#EEEEF8" }}
+                    formatter={(value: any, name: any) => [formatBRL(Number(value || 0)), name === "investimento" ? "Investimento" : "Receita"]}
+                  />
+                  <Area type="monotone" dataKey="investimento" name="investimento" stroke="#8B7FFF" strokeWidth={2} fill="url(#gradInvest)" />
+                  <Area type="monotone" dataKey="receita" name="receita" stroke="#29D98A" strokeWidth={2} fill="url(#gradReceita)" />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-          </CardHeader>
-          <CardContent>
-            {dailyChart.length > 0 ? (
-              <div className="h-[140px] md:h-[180px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={dailyChart}>
-                    <defs>
-                      <linearGradient id="gradInvest" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#8B7FFF" stopOpacity={0.3} />
-                        <stop offset="100%" stopColor="#8B7FFF" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="gradReceita" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#29D98A" stopOpacity={0.3} />
-                        <stop offset="100%" stopColor="#29D98A" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                    <XAxis dataKey="day" tick={{ fill: "#50506A", fontSize: 9 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: "#50506A", fontSize: 9 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#14141E", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", fontSize: "12px", color: "#EEEEF8" }}
-                      formatter={(value: any, name: any) => [formatBRL(Number(value || 0)), name === "investimento" ? "Investimento" : "Receita"]}
-                    />
-                    <Area type="monotone" dataKey="investimento" name="investimento" stroke="#8B7FFF" strokeWidth={2} fill="url(#gradInvest)" />
-                    <Area type="monotone" dataKey="receita" name="receita" stroke="#29D98A" strokeWidth={2} fill="url(#gradReceita)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="h-[140px] md:h-[180px] flex items-center justify-center text-t3 text-sm">Sem dados para o período</div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Agent Feed */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Agente IA</CardTitle>
-              <span className="text-sm text-t3">Últimas ações</span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-2.5">
-              {aiDecisions && aiDecisions.length > 0 ? (
-                aiDecisions.slice(0, 3).map((decision: any) => (
-                  <AgentFeedItem
-                    key={decision.id}
-                    variant={decision.status === "pending" ? "pending" : decision.status === "executed" ? "executed" : "warning"}
-                    icon={decision.status === "pending" ? "⟳" : decision.status === "executed" ? "✓" : "!"}
-                    pending={decision.status === "pending"}
-                    meta={decision.created_at ? new Date(decision.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : undefined}
-                    onApprove={async () => {
-                      await supabase.from("ai_decisions").update({ status: "approved" }).eq("id", decision.id);
-                      // Execute the approved decision
-                      await supabase.functions.invoke("ai-execute", { body: { decisionId: decision.id } });
-                      queryClient.invalidateQueries({ queryKey: ["ai-decisions"] });
-                      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-                    }}
-                    onReject={async () => {
-                      await supabase.from("ai_decisions").update({ status: "rejected" }).eq("id", decision.id);
-                      queryClient.invalidateQueries({ queryKey: ["ai-decisions"] });
-                    }}
-                  >
-                    <strong>{decision.action_type || "Ação"}</strong> — {decision.description || decision.reason || "Sem descrição"}
-                  </AgentFeedItem>
-                ))
-              ) : (
-                <div className="text-center text-t3 text-sm py-6">Nenhuma ação do agente ainda. Configure a IA em Insights.</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          ) : (
+            <div className="h-[180px] md:h-[220px] flex items-center justify-center text-t3 text-sm">Sem dados para o período</div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Row: Top Campanhas + Pipeline + Inteligência ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

@@ -53,6 +53,8 @@ import {
   Download,
   ArrowUp,
   ArrowDown,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -203,6 +205,8 @@ export default function CampaignsListPage() {
   const [visibleColumns, setVisibleColumns] = useState<string[]>(getDefaultVisibleColumns);
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [page, setPage] = useState(0);
+  const pageSize = 25;
 
   // Budget dialog
   const [budgetDialog, setBudgetDialog] = useState<{ id: string; name: string; budget: number } | null>(null);
@@ -558,11 +562,11 @@ export default function CampaignsListPage() {
                   <Input
                     placeholder="Buscar campanha..."
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => { setSearch(e.target.value); setPage(0); }}
                     className="pl-8 h-8 text-sm"
                   />
                 </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
                   <SelectTrigger className="w-[130px] h-8 text-sm">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
@@ -572,7 +576,7 @@ export default function CampaignsListPage() {
                     <SelectItem value="paused">Pausadas</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(0); }}>
                   <SelectTrigger className="w-[130px] h-8 text-sm">
                     <SelectValue placeholder="Tipo" />
                   </SelectTrigger>
@@ -657,7 +661,7 @@ export default function CampaignsListPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filtered.map((c: any) => {
+                        {filtered.slice(page * pageSize, (page + 1) * pageSize).map((c: any) => {
                           const cellCls = "py-2.5 border-b border-border text-sm text-t2 text-right group-hover:bg-s2 transition-colors px-1";
                           return (
                             <tr key={c.id} className={cn("group", selected.has(c.id) && "bg-primary/5")}>
@@ -814,6 +818,47 @@ export default function CampaignsListPage() {
                     </table>
                   </div>
                 </CardContent>
+
+                {/* Pagination */}
+                {filtered.length > pageSize && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                    <span className="text-xs text-t3">
+                      {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filtered.length)} de {filtered.length}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={page === 0}
+                        onClick={() => setPage((p) => p - 1)}
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </Button>
+                      {Array.from({ length: Math.ceil(filtered.length / pageSize) }, (_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setPage(i)}
+                          className={cn(
+                            "h-7 min-w-[28px] rounded-md text-xs font-medium transition-colors",
+                            page === i ? "bg-primary text-white" : "text-t3 hover:bg-s2 hover:text-t1"
+                          )}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={(page + 1) * pageSize >= filtered.length}
+                        onClick={() => setPage((p) => p + 1)}
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </Card>
             </>
           )}
