@@ -42,22 +42,70 @@ export async function fetchDashboardMetrics(orgId: string, days = 1) {
 }
 
 // ─── Campaigns ─────────────────────────────────────────
-export async function fetchCampaigns(orgId: string, days?: number) {
-  let query = supabase
+export async function fetchCampaigns(orgId: string, _days?: number) {
+  const { data, error } = await supabase
     .from("campaigns")
     .select("*, ad_groups(*)")
     .eq("organization_id", orgId)
-    .order("created_at", { ascending: false });
+    .order("cost", { ascending: false });
 
-  if (days) {
-    const dateFrom = new Date();
-    dateFrom.setDate(dateFrom.getDate() - days);
-    query = query.gte("updated_at", dateFrom.toISOString());
-  }
-
-  const { data, error } = await query;
   if (error) throw error;
   return data;
+}
+
+/**
+ * Extract campaign metrics for a given period from daily_metrics in metadata.
+ * This allows the frontend to show data for "today", "7 days", "30 days" etc.
+ */
+export function getCampaignMetricsForPeriod(
+  campaign: any,
+  days: number
+): { spend: number; impressions: number; clicks: number; conversions: number; revenue: number } {
+  const meta = campaign.metadata as Record<string, any> | null;
+  const dailyMetrics = meta?.daily_metrics as Record<string, any> | undefined;
+
+  // If no daily_metrics, fall back to the campaign totals (30-day aggregate)
+  if (!dailyMetrics || Object.keys(dailyMetrics).length === 0) {
+    return {
+      spend: campaign.cost || 0,
+      impressions: campaign.impressions || 0,
+      clicks: campaign.clicks || 0,
+      conversions: campaign.google_conversions || 0,
+      revenue: campaign.google_conversion_value || 0,
+    };
+  }
+
+  // Calculate date threshold
+  const now = new Date();
+  let dateFrom: string;
+  if (days <= 1) {
+    // Today only
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    dateFrom = `${y}-${m}-${d}`;
+  } else {
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    const y = from.getFullYear();
+    const m = String(from.getMonth() + 1).padStart(2, "0");
+    const d = String(from.getDate()).padStart(2, "0");
+    dateFrom = `${y}-${m}-${d}`;
+  }
+
+  // Sum daily_metrics entries within the period
+  const totals = { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 };
+  for (const [date, dm] of Object.entries(dailyMetrics)) {
+    if (date >= dateFrom) {
+      const d = dm as any;
+      totals.spend += d.spend || 0;
+      totals.impressions += d.impressions || 0;
+      totals.clicks += d.clicks || 0;
+      totals.conversions += d.conversions || 0;
+      totals.revenue += d.revenue || 0;
+    }
+  }
+  return totals;
 }
 
 export async function fetchCampaignById(orgId: string, id: string) {

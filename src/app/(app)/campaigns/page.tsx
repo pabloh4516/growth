@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useCampaigns, useAdAccounts } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { usePeriodStore } from "@/lib/hooks/use-period";
 import { formatBRL, formatCompact, formatNumber } from "@/lib/utils";
+import { getCampaignMetricsForPeriod } from "@/lib/services/supabase-queries";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PlatformHero } from "@/components/shared/platform-hero";
 import { StatusPill } from "@/components/shared/status-pill";
@@ -32,12 +32,17 @@ export default function GoogleAdsOverviewPage() {
     ? (campaigns || []).filter((c: any) => c.ad_account_id === selectedAccount)
     : campaigns || [];
 
-  const totalCost = filteredCampaigns.reduce((s: number, c: any) => s + (c.cost || 0), 0);
+  // Use daily_metrics for period-aware calculations
+  const campaignMetrics = filteredCampaigns.map((c: any) => ({
+    ...c,
+    _m: getCampaignMetricsForPeriod(c, days),
+  }));
+
+  const totalCost = campaignMetrics.reduce((s: number, c: any) => s + c._m.spend, 0);
   const totalRevenue = filteredCampaigns.reduce((s: number, c: any) => s + (c.real_revenue || 0), 0);
-  const totalClicks = filteredCampaigns.reduce((s: number, c: any) => s + (c.clicks || 0), 0);
-  const totalImpressions = filteredCampaigns.reduce((s: number, c: any) => s + (c.impressions || 0), 0);
+  const totalClicks = campaignMetrics.reduce((s: number, c: any) => s + c._m.clicks, 0);
+  const totalImpressions = campaignMetrics.reduce((s: number, c: any) => s + c._m.impressions, 0);
   const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
-  const avgCpa = totalClicks > 0 ? totalCost / (filteredCampaigns.reduce((s: number, c: any) => s + (c.conversions || 0), 0) || 1) : 0;
   const roas = totalCost > 0 ? totalRevenue / totalCost : 0;
   const activeCampaigns = filteredCampaigns.filter((c: any) => c.status === "active").length;
   const totalProfit = totalRevenue - totalCost;
@@ -134,46 +139,50 @@ export default function GoogleAdsOverviewPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredCampaigns.slice(0, 8).map((c: any) => (
-                  <tr key={c.id} className="group cursor-pointer">
-                    <td className="py-2.5 border-b border-border text-base font-medium text-t1 group-hover:bg-s2 transition-colors px-1 max-w-[200px] truncate">
-                      {c.name}
-                    </td>
-                    <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
-                      {(() => {
-                        const t = (c.objective || c.campaign_type || "").toLowerCase();
-                        if (t.includes("search")) return "Search";
-                        if (t.includes("display")) return "Display";
-                        if (t.includes("performance_max") || t.includes("pmax")) return "PMax";
-                        if (t.includes("demand_gen")) return "Demanda";
-                        if (t.includes("video")) return "Video";
-                        if (t.includes("shopping")) return "Shopping";
-                        return t || "—";
-                      })()}
-                    </td>
-                    <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
-                      <StatusPill variant={c.status === "active" ? "active" : c.status === "paused" ? "paused" : "learning"} />
-                    </td>
-                    <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1">
-                      {formatBRL(c.cost || 0)}
-                    </td>
-                    <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">
-                      {c.real_sales_count || 0}
-                    </td>
-                    <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">
-                      {formatBRL(c.real_revenue || 0)}
-                    </td>
-                    <td className={`py-2.5 border-b border-border text-base font-medium text-right group-hover:bg-s2 transition-colors px-1 ${((c.real_revenue || 0) - (c.cost || 0)) >= 0 ? "text-success" : "text-destructive"}`}>
-                      {formatBRL((c.real_revenue || 0) - (c.cost || 0))}
-                    </td>
-                    <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden lg:table-cell">
-                      {(c.real_sales_count || 0) > 0 ? formatBRL((c.cost || 0) / c.real_sales_count) : "—"}
-                    </td>
-                    <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
-                      <RoasValue value={c.real_roas || 0} />
-                    </td>
-                  </tr>
-                ))}
+                {campaignMetrics.slice(0, 8).map((c: any) => {
+                  const m = c._m;
+                  const profit = (c.real_revenue || 0) - m.spend;
+                  return (
+                    <tr key={c.id} className="group cursor-pointer">
+                      <td className="py-2.5 border-b border-border text-base font-medium text-t1 group-hover:bg-s2 transition-colors px-1 max-w-[200px] truncate">
+                        {c.name}
+                      </td>
+                      <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
+                        {(() => {
+                          const t = (c.objective || c.campaign_type || "").toLowerCase();
+                          if (t.includes("search")) return "Search";
+                          if (t.includes("display")) return "Display";
+                          if (t.includes("performance_max") || t.includes("pmax")) return "PMax";
+                          if (t.includes("demand_gen")) return "Demanda";
+                          if (t.includes("video")) return "Video";
+                          if (t.includes("shopping")) return "Shopping";
+                          return t || "—";
+                        })()}
+                      </td>
+                      <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
+                        <StatusPill variant={c.status === "active" ? "active" : c.status === "paused" ? "paused" : "learning"} />
+                      </td>
+                      <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1">
+                        {formatBRL(m.spend)}
+                      </td>
+                      <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">
+                        {c.real_sales_count || 0}
+                      </td>
+                      <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">
+                        {formatBRL(c.real_revenue || 0)}
+                      </td>
+                      <td className={`py-2.5 border-b border-border text-base font-medium text-right group-hover:bg-s2 transition-colors px-1 ${profit >= 0 ? "text-success" : "text-destructive"}`}>
+                        {formatBRL(profit)}
+                      </td>
+                      <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden lg:table-cell">
+                        {(c.real_sales_count || 0) > 0 ? formatBRL(m.spend / c.real_sales_count) : "—"}
+                      </td>
+                      <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
+                        <RoasValue value={c.real_roas || 0} />
+                      </td>
+                    </tr>
+                  );
+                })}
                 {filteredCampaigns.length === 0 && (
                   <tr><td colSpan={9} className="py-8 text-center text-t3 text-sm">Nenhuma campanha encontrada</td></tr>
                 )}
