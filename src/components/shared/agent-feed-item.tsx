@@ -25,7 +25,7 @@ export function AgentFeedItem({ variant, icon, children, meta, pending, onApprov
   return (
     <div
       className={cn(
-        "flex gap-3 bg-s2 border border-border rounded-[11px] p-3 transition-colors duration-200 hover:border-[hsl(var(--border2))]",
+        "flex gap-2.5 md:gap-3 bg-s2 border border-border rounded-[11px] p-2.5 md:p-3 transition-colors duration-200 hover:border-[hsl(var(--border2))]",
         pending && "border-primary/28",
         className
       )}

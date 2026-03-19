@@ -83,7 +83,7 @@ export function ChatBar() {
     <>
       {/* Agent Panel (expanded chat) */}
       {panelOpen && (
-        <div className="absolute bottom-[52px] right-3 md:right-6 w-[calc(100vw-24px)] md:w-[360px] max-h-[450px] bg-s1 border border-border rounded-lg shadow-[0_8px_32px_rgba(0,0,0,.5)] flex flex-col z-50 animate-fade-up">
+        <div className="absolute bottom-[52px] left-3 right-3 md:left-auto md:right-6 md:w-[360px] max-h-[60dvh] md:max-h-[450px] bg-s1 border border-border rounded-lg shadow-[0_8px_32px_rgba(0,0,0,.5)] flex flex-col z-50 animate-fade-up">
           {/* Panel header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ export function ChatBar() {
                   {msg.role === "ai" ? "✦" : "Vc"}
                 </div>
                 <div className={cn(
-                  "max-w-[260px] px-3 py-2.5 text-base text-t1 leading-relaxed whitespace-pre-wrap",
+                  "max-w-[70%] px-3 py-2.5 text-base text-t1 leading-relaxed whitespace-pre-wrap",
                   msg.role === "ai"
                     ? "bg-s2 border border-border rounded-[12px] rounded-bl-[3px]"
                     : "bg-purple-dim border border-primary/30 rounded-[12px] rounded-br-[3px]"

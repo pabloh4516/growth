@@ -155,7 +155,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {dailyChart.length > 0 ? (
-              <div className="h-[180px]">
+              <div className="h-[140px] md:h-[180px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={dailyChart}>
                     <defs>
@@ -181,7 +181,7 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div className="h-[180px] flex items-center justify-center text-t3 text-sm">Sem dados para o período</div>
+              <div className="h-[140px] md:h-[180px] flex items-center justify-center text-t3 text-sm">Sem dados para o período</div>
             )}
           </CardContent>
         </Card>

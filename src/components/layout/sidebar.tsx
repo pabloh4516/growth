@@ -297,7 +297,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
       <aside
         className={cn(
-          "fixed top-0 left-0 z-50 h-screen w-[232px] min-w-[232px] bg-s1 border-r border-border flex flex-col overflow-hidden transition-transform duration-300",
+          "fixed top-0 left-0 z-50 h-[100dvh] w-[85vw] max-w-[260px] lg:w-[232px] lg:min-w-[232px] bg-s1 border-r border-border flex flex-col overflow-hidden transition-transform duration-300",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           "lg:translate-x-0 lg:sticky"
         )}

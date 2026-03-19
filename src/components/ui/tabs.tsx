@@ -38,7 +38,7 @@ const TabsList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivEl
     <div
       ref={ref}
       className={cn(
-        "inline-flex items-center gap-1 rounded-md bg-s2 p-1 text-t3",
+        "inline-flex items-center gap-1 rounded-md bg-s2 p-1 text-t3 overflow-x-auto scrollbar-none max-w-full",
         className
       )}
       role="tablist"
@@ -65,7 +65,7 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
         data-state={isActive ? "active" : "inactive"}
         onClick={() => context.onValueChange(value)}
         className={cn(
-          "inline-flex items-center justify-center whitespace-nowrap rounded-[7px] px-3.5 py-[7px] text-base font-normal transition-all duration-150 cursor-pointer",
+          "inline-flex items-center justify-center whitespace-nowrap rounded-[7px] px-2.5 md:px-3.5 py-1.5 md:py-[7px] text-2xs md:text-base font-normal transition-all duration-150 cursor-pointer shrink-0",
           isActive
             ? "bg-card text-t1 font-medium shadow-[0_1px_4px_rgba(0,0,0,.3)]"
             : "text-t3 hover:text-t2",

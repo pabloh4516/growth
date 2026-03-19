@@ -24,13 +24,13 @@ export function MetricCard({ label, value, delta, deltaType = "up", gradient = "
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-lg border border-border bg-card p-4 transition-all duration-200 hover:border-[hsl(var(--border2))] hover:-translate-y-px cursor-default",
+        "relative overflow-hidden rounded-lg border border-border bg-card p-3 md:p-4 transition-all duration-200 hover:border-[hsl(var(--border2))] hover:-translate-y-px cursor-default",
         gradientMap[gradient],
         className
       )}
     >
-      <div className="text-xs text-t3 font-light tracking-wide mb-2">{label}</div>
-      <div className="font-heading text-2xl font-bold tracking-tight text-t1 mb-2">{value}</div>
+      <div className="text-2xs md:text-xs text-t3 font-light tracking-wide mb-1 md:mb-2 truncate">{label}</div>
+      <div className="font-heading text-lg md:text-2xl font-bold tracking-tight text-t1 mb-1 md:mb-2 truncate">{value}</div>
       {delta && (
         <span
           className={cn(

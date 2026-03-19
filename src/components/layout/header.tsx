@@ -117,58 +117,42 @@ export function Header({ onMenuToggle }: HeaderProps) {
     : "?";
 
   return (
-    <header className="sticky top-0 z-30 bg-s1 border-b border-border px-3 md:px-6 py-3 md:py-3.5 flex items-center gap-2 md:gap-3.5 shrink-0">
-      {/* Mobile menu */}
-      <button onClick={onMenuToggle} className="lg:hidden text-t3 hover:text-t1">
-        <Menu className="h-5 w-5" />
-      </button>
+    <header className="sticky top-0 z-30 bg-s1 border-b border-border shrink-0">
+      {/* Top row: menu + title + actions */}
+      <div className="px-4 md:px-6 py-2.5 md:py-3 flex items-center gap-2 md:gap-3.5">
+        {/* Mobile menu */}
+        <button onClick={onMenuToggle} className="lg:hidden text-t3 hover:text-t1 p-1 -ml-1">
+          <Menu className="h-5 w-5" />
+        </button>
 
-      {/* Title + breadcrumb */}
-      <div className="flex-1 min-w-0">
-        {meta.breadcrumb ? (
-          <div className="flex items-center gap-1.5 text-sm text-t3 mb-0.5">
-            {meta.breadcrumb.map((part, i) => (
-              <span key={i} className="flex items-center gap-1.5">
-                {i > 0 && <span className="opacity-40">›</span>}
-                <span className={i === meta.breadcrumb!.length - 1 ? "text-t2" : ""}>{part}</span>
-              </span>
-            ))}
-          </div>
-        ) : null}
-        <div className="font-heading text-lg font-bold tracking-tight">{meta.title}</div>
-        {meta.sub && !meta.breadcrumb && <div className="text-[10px] text-t3 font-light mt-0.5">{meta.sub}</div>}
-      </div>
+        {/* Title + breadcrumb */}
+        <div className="flex-1 min-w-0">
+          {meta.breadcrumb ? (
+            <div className="flex items-center gap-1.5 text-2xs md:text-sm text-t3 mb-0.5 truncate">
+              {meta.breadcrumb.map((part, i) => (
+                <span key={i} className="flex items-center gap-1.5 shrink-0">
+                  {i > 0 && <span className="opacity-40">›</span>}
+                  <span className={i === meta.breadcrumb!.length - 1 ? "text-t2" : ""}>{part}</span>
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <div className="font-heading text-base md:text-lg font-bold tracking-tight truncate">{meta.title}</div>
+          {meta.sub && !meta.breadcrumb && <div className="text-[10px] text-t3 font-light mt-0.5 hidden sm:block">{meta.sub}</div>}
+        </div>
 
-      {/* Period selector */}
-      <div className="hidden md:flex items-center gap-1 bg-s2 rounded-md p-1">
-        {PERIODS.map((p) => (
-          <button
-            key={p.value}
-            onClick={() => setPeriod(p.value)}
-            className={cn(
-              "px-3 py-[5px] text-xs rounded-[7px] transition-all duration-150 cursor-pointer",
-              period === p.value
-                ? "bg-card text-t1 font-medium shadow-[0_1px_4px_rgba(0,0,0,.3)]"
-                : "text-t3 hover:text-t2"
-            )}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+        {/* Sync — compact on mobile */}
+        <button
+          onClick={syncNow}
+          disabled={isSyncing}
+          className="flex items-center gap-1 text-xs text-t3 hover:text-t1 transition-colors p-1.5 rounded-sm hover:bg-s2"
+        >
+          {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          <span className="hidden md:inline">{isSyncing ? "Sync..." : lastSync ? formatTimeSince(lastSync) : "Sync"}</span>
+        </button>
 
-      {/* Sync */}
-      <button
-        onClick={syncNow}
-        disabled={isSyncing}
-        className="hidden md:flex items-center gap-1.5 text-xs text-t3 hover:text-t1 transition-colors px-2 py-1 rounded-sm hover:bg-s2"
-      >
-        {isSyncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-        <span>{isSyncing ? "Sync..." : lastSync ? formatTimeSince(lastSync) : "Sync"}</span>
-      </button>
-
-      {/* Realtime indicator */}
-      <Wifi className="hidden md:block h-3 w-3 text-success" />
+        {/* Realtime indicator */}
+        <Wifi className="hidden sm:block h-3 w-3 text-success shrink-0" />
 
       {/* User menu */}
       <DropdownMenu>
@@ -206,6 +190,27 @@ export function Header({ onMenuToggle }: HeaderProps) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      </div>
+
+      {/* Period selector — always visible, scrollable on mobile */}
+      <div className="px-4 md:px-6 pb-2.5 flex items-center gap-1 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1 bg-s2 rounded-md p-0.5 md:p-1">
+          {PERIODS.map((p) => (
+            <button
+              key={p.value}
+              onClick={() => setPeriod(p.value)}
+              className={cn(
+                "px-2.5 md:px-3 py-1 md:py-[5px] text-2xs md:text-xs rounded-[7px] transition-all duration-150 cursor-pointer whitespace-nowrap",
+                period === p.value
+                  ? "bg-card text-t1 font-medium shadow-[0_1px_4px_rgba(0,0,0,.3)]"
+                  : "text-t3 hover:text-t2"
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
     </header>
   );
 }
