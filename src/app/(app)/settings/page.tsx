@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { User, Building2, Key, Bell, CreditCard, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -15,9 +14,9 @@ const supabase = createClient();
 
 const TABS = [
   { id: "profile", label: "Perfil", icon: User },
-  { id: "organization", label: "Organização", icon: Building2 },
+  { id: "organization", label: "Organizacao", icon: Building2 },
   { id: "api", label: "API Keys", icon: Key },
-  { id: "notifications", label: "Notificações", icon: Bell },
+  { id: "notifications", label: "Notificacoes", icon: Bell },
   { id: "billing", label: "Faturamento", icon: CreditCard },
 ] as const;
 
@@ -53,20 +52,22 @@ export default function SettingsPage() {
       .eq("id", currentOrg.id);
     setSaving(false);
     if (error) {
-      toast.error("Erro ao salvar organização", { description: error.message });
+      toast.error("Erro ao salvar organizacao", { description: error.message });
     } else {
-      toast.success("Organização atualizada!");
+      toast.success("Organizacao atualizada!");
     }
   };
 
   return (
-    <div className="space-y-6 animate-fade-up">
+    <div className="space-y-5 animate-fade-up">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-heading font-bold text-t1">Configurações</h1>
-        <p className="text-sm text-t3 mt-1">Gerencie seu perfil e organização</p>
+        <h1 className="font-heading text-xl font-bold text-t1">Configuracoes</h1>
+        <p className="text-sm text-t3 mt-0.5">Gerencie seu perfil e organizacao</p>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6">
+      <div className="flex flex-col md:flex-row gap-5">
+        {/* Sidebar Tabs */}
         <div className="md:w-56 flex md:flex-col gap-1">
           {TABS.map((t) => {
             const Icon = t.icon;
@@ -86,22 +87,23 @@ export default function SettingsPage() {
           })}
         </div>
 
+        {/* Content */}
         <div className="flex-1">
           {tab === "profile" && (
             <Card>
-              <CardHeader><CardTitle className="text-base font-heading">Perfil</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Perfil</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Nome</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} />
+                <div className="space-y-1.5">
+                  <label className="text-xs text-t3 uppercase tracking-wide font-medium">Nome</label>
+                  <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-s2 border-input" />
                 </div>
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input defaultValue={profile?.email || ""} disabled />
+                <div className="space-y-1.5">
+                  <label className="text-xs text-t3 uppercase tracking-wide font-medium">Email</label>
+                  <Input defaultValue={profile?.email || ""} disabled className="bg-s2 border-input opacity-60" />
                 </div>
                 <Button onClick={handleSaveProfile} disabled={saving}>
                   {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Salvar Alterações
+                  Salvar Alteracoes
                 </Button>
               </CardContent>
             </Card>
@@ -109,19 +111,19 @@ export default function SettingsPage() {
 
           {tab === "organization" && (
             <Card>
-              <CardHeader><CardTitle className="text-base font-heading">Organização</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Organizacao</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Nome da Empresa</Label>
-                  <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} />
+                <div className="space-y-1.5">
+                  <label className="text-xs text-t3 uppercase tracking-wide font-medium">Nome da Empresa</label>
+                  <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} className="bg-s2 border-input" />
                 </div>
-                <div className="space-y-2">
-                  <Label>Fuso Horário</Label>
-                  <Input value={timezone} onChange={(e) => setTimezone(e.target.value)} />
+                <div className="space-y-1.5">
+                  <label className="text-xs text-t3 uppercase tracking-wide font-medium">Fuso Horario</label>
+                  <Input value={timezone} onChange={(e) => setTimezone(e.target.value)} className="bg-s2 border-input" />
                 </div>
-                <div className="space-y-2">
-                  <Label>Moeda</Label>
-                  <Input defaultValue={currentOrg?.currency || "BRL"} disabled />
+                <div className="space-y-1.5">
+                  <label className="text-xs text-t3 uppercase tracking-wide font-medium">Moeda</label>
+                  <Input defaultValue={currentOrg?.currency || "BRL"} disabled className="bg-s2 border-input opacity-60" />
                 </div>
                 <Button onClick={handleSaveOrg} disabled={saving}>
                   {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -133,9 +135,9 @@ export default function SettingsPage() {
 
           {tab === "api" && (
             <Card>
-              <CardHeader><CardTitle className="text-base font-heading">API Keys</CardTitle></CardHeader>
+              <CardHeader><CardTitle>API Keys</CardTitle></CardHeader>
               <CardContent>
-                <p className="text-sm text-t3 mb-4">Gerencie suas chaves de API para integrações externas.</p>
+                <p className="text-sm text-t3 mb-4">Gerencie suas chaves de API para integracoes externas.</p>
                 <Button
                   onClick={async () => {
                     if (!currentOrg) return;
@@ -162,17 +164,17 @@ export default function SettingsPage() {
 
           {tab === "notifications" && (
             <Card>
-              <CardHeader><CardTitle className="text-base font-heading">Notificações</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
+              <CardHeader><CardTitle>Notificacoes</CardTitle></CardHeader>
+              <CardContent className="space-y-1">
                 {[
-                  { key: "email_alerts", label: "Alertas por email", desc: "Receba alertas críticos no seu email" },
-                  { key: "ai_decisions", label: "Decisões da IA", desc: "Notificar quando a IA tomar decisões" },
-                  { key: "budget_alerts", label: "Alertas de budget", desc: "Avisar quando o budget estiver próximo do limite" },
-                  { key: "daily_report", label: "Relatório diário", desc: "Resumo diário de performance" },
+                  { key: "email_alerts", label: "Alertas por email", desc: "Receba alertas criticos no seu email" },
+                  { key: "ai_decisions", label: "Decisoes da IA", desc: "Notificar quando a IA tomar decisoes" },
+                  { key: "budget_alerts", label: "Alertas de budget", desc: "Avisar quando o budget estiver proximo do limite" },
+                  { key: "daily_report", label: "Relatorio diario", desc: "Resumo diario de performance" },
                 ].map((item) => (
-                  <div key={item.key} className="flex items-center justify-between py-2">
+                  <div key={item.key} className="flex items-center justify-between py-3 border-b border-border last:border-0">
                     <div>
-                      <p className="text-sm font-medium">{item.label}</p>
+                      <p className="text-base font-medium text-t1">{item.label}</p>
                       <p className="text-xs text-t3">{item.desc}</p>
                     </div>
                     <button
@@ -199,30 +201,30 @@ export default function SettingsPage() {
 
           {tab === "billing" && (
             <Card>
-              <CardHeader><CardTitle className="text-base font-heading">Faturamento</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
+              <CardHeader><CardTitle>Faturamento</CardTitle></CardHeader>
+              <CardContent className="space-y-5">
                 <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-semibold">Plano Atual</h3>
+                    <h3 className="text-base font-semibold text-t1">Plano Atual</h3>
                     <span className="text-xs font-semibold bg-primary/20 text-primary px-2 py-0.5 rounded-full">Pro</span>
                   </div>
-                  <p className="text-2xl font-bold font-mono">R$ 497<span className="text-sm text-t3 font-normal">/mês</span></p>
-                  <p className="text-xs text-t3 mt-1">Próxima cobrança: 17/04/2026</p>
+                  <div className="font-heading text-2xl font-bold tracking-tight text-t1">R$ 497<span className="text-sm text-t3 font-normal">/mes</span></div>
+                  <p className="text-xs text-t3 mt-1">Proxima cobranca: 17/04/2026</p>
                 </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Uso do mês</p>
+                <div className="space-y-3">
+                  <p className="text-xs text-t3 uppercase tracking-wide font-medium">Uso do mes</p>
                   {[
                     { label: "Campanhas analisadas", used: 8, limit: 50 },
-                    { label: "Análises IA", used: 23, limit: 100 },
-                    { label: "Relatórios gerados", used: 5, limit: 30 },
+                    { label: "Analises IA", used: 23, limit: 100 },
+                    { label: "Relatorios gerados", used: 5, limit: 30 },
                     { label: "Contatos CRM", used: 142, limit: 5000 },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center gap-3">
                       <span className="text-xs text-t3 w-40">{item.label}</span>
-                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${(item.used / item.limit) * 100}%` }} />
+                      <div className="flex-1 h-1.5 bg-s3 rounded-full overflow-hidden">
+                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${(item.used / item.limit) * 100}%` }} />
                       </div>
-                      <span className="text-xs font-mono w-16 text-right">{item.used}/{item.limit}</span>
+                      <span className="text-xs font-mono text-t2 w-16 text-right">{item.used}/{item.limit}</span>
                     </div>
                   ))}
                 </div>

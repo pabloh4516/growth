@@ -6,10 +6,10 @@ import { useOrgId } from "@/lib/hooks/use-org";
 import { getGoogleAdsAuthUrl, syncGA4, syncSearchConsole, syncUtmify } from "@/lib/services/edge-functions";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatusBadge } from "@/components/shared/status-badge";
+import { StatusPill } from "@/components/shared/status-pill";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Copy, Check, Link2, Trash2, RefreshCw, ExternalLink,
@@ -20,24 +20,18 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const supabase = createClient();
 
-const INTEGRATION_META: Record<string, { name: string; description: string; icon: string; connectable: boolean }> = {
-  google_ads: { name: "Google Ads", description: "Campanhas, métricas e ações automatizadas", icon: "G", connectable: true },
-  meta_ads: { name: "Meta Ads", description: "Facebook & Instagram Ads", icon: "M", connectable: false },
-  tiktok_ads: { name: "TikTok Ads", description: "Campanhas no TikTok", icon: "T", connectable: false },
-  ga4: { name: "Google Analytics 4", description: "Sessões, pageviews e bounce rate", icon: "A", connectable: true },
-  search_console: { name: "Search Console", description: "Rankings SEO e keywords", icon: "S", connectable: true },
-  utmify: { name: "Utmify", description: "Vendas reais via API", icon: "U", connectable: true },
-  sellx_checkout: { name: "SellxCheckout", description: "Vendas do checkout próprio", icon: "S", connectable: true },
-  sellx_pay: { name: "SellxPay", description: "Transações do gateway próprio", icon: "$", connectable: true },
-  stripe: { name: "Stripe", description: "Pagamentos via webhook", icon: "$", connectable: false },
-  resend: { name: "Resend", description: "Email transacional", icon: "R", connectable: false },
-  twilio: { name: "Twilio", description: "Call tracking e números", icon: "T", connectable: false },
-};
-
-const PLATFORM_COLORS: Record<string, string> = {
-  google_ads: "bg-blue-500/10 text-blue-400",
-  meta_ads: "bg-indigo-500/10 text-indigo-400",
-  tiktok_ads: "bg-pink-500/10 text-pink-400",
+const INTEGRATION_META: Record<string, { name: string; description: string; icon: string; color: string; connectable: boolean }> = {
+  google_ads: { name: "Google Ads", description: "Campanhas, metricas e acoes automatizadas", icon: "G", color: "bg-blue-500/10 text-blue-400", connectable: true },
+  meta_ads: { name: "Meta Ads", description: "Facebook & Instagram Ads", icon: "M", color: "bg-indigo-500/10 text-indigo-400", connectable: false },
+  tiktok_ads: { name: "TikTok Ads", description: "Campanhas no TikTok", icon: "T", color: "bg-pink-500/10 text-pink-400", connectable: false },
+  ga4: { name: "Google Analytics 4", description: "Sessoes, pageviews e bounce rate", icon: "A", color: "bg-orange-500/10 text-orange-400", connectable: true },
+  search_console: { name: "Search Console", description: "Rankings SEO e keywords", icon: "S", color: "bg-teal-500/10 text-teal-400", connectable: true },
+  utmify: { name: "Utmify", description: "Vendas reais via API", icon: "U", color: "bg-emerald-500/10 text-emerald-400", connectable: true },
+  sellx_checkout: { name: "SellxCheckout", description: "Vendas do checkout proprio", icon: "S", color: "bg-violet-500/10 text-violet-400", connectable: true },
+  sellx_pay: { name: "SellxPay", description: "Transacoes do gateway proprio", icon: "$", color: "bg-amber-500/10 text-amber-400", connectable: true },
+  stripe: { name: "Stripe", description: "Pagamentos via webhook", icon: "$", color: "bg-purple-500/10 text-purple-400", connectable: false },
+  resend: { name: "Resend", description: "Email transacional", icon: "R", color: "bg-cyan-500/10 text-cyan-400", connectable: false },
+  twilio: { name: "Twilio", description: "Call tracking e numeros", icon: "T", color: "bg-red-500/10 text-red-400", connectable: false },
 };
 
 function formatDate(date: string | null) {
@@ -232,7 +226,7 @@ export default function IntegrationsPage() {
 
   const handleConnect = async (type: string) => {
     if (!orgId) {
-      toast.error("Organização não encontrada");
+      toast.error("Organizacao nao encontrada");
       return;
     }
     setConnecting(type);
@@ -246,7 +240,7 @@ export default function IntegrationsPage() {
             window.location.href = result.authUrl;
             return;
           }
-          toast.error("Erro ao obter URL de autenticação do Google Ads");
+          toast.error("Erro ao obter URL de autenticacao do Google Ads");
           break;
         }
         case "ga4": {
@@ -265,16 +259,16 @@ export default function IntegrationsPage() {
           const webhookUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/utmify-webhook?org=${orgId}`;
           navigator.clipboard.writeText(webhookUrl);
           toast.success("URL do webhook copiada!", {
-            description: "Cole no painel da Utmify em Configurações → Webhooks",
+            description: "Cole no painel da Utmify em Configuracoes > Webhooks",
             duration: 10000,
           });
           break;
         }
         default:
-          toast.info("Em breve", { description: `${INTEGRATION_META[type]?.name} será disponibilizada em breve.` });
+          toast.info("Em breve", { description: `${INTEGRATION_META[type]?.name} sera disponibilizada em breve.` });
       }
     } catch (err: any) {
-      toast.error("Erro na integração", { description: err?.message });
+      toast.error("Erro na integracao", { description: err?.message });
     } finally {
       setConnecting(null);
     }
@@ -326,7 +320,7 @@ export default function IntegrationsPage() {
         body: { organizationId: orgId, scope: "full" },
       });
       if (error) throw error;
-      toast.success("Sincronização concluída!", {
+      toast.success("Sincronizacao concluida!", {
         description: `${data?.results?.[0]?.campaigns || 0} campanhas sincronizadas`,
       });
       refetchAccounts();
@@ -359,388 +353,357 @@ export default function IntegrationsPage() {
     });
 
   return (
-    <div className="space-y-8 animate-fade-up">
+    <div className="space-y-5 animate-fade-up">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-heading font-bold text-t1">Integrações</h1>
-        <p className="text-sm text-t3 mt-1">Conecte suas plataformas de marketing</p>
+        <h1 className="font-heading text-xl font-bold text-t1">Integracoes</h1>
+        <p className="text-sm text-t3 mt-0.5">Conecte suas plataformas de marketing e vendas</p>
       </div>
 
-      {/* GOOGLE ADS */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-heading font-bold flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold text-sm">G</div>
-              Google Ads
-            </h2>
-            <p className="text-sm text-t3 mt-0.5">
-              {connectedAccounts.length} conta{connectedAccounts.length !== 1 ? "s" : ""} conectada{connectedAccounts.length !== 1 ? "s" : ""}
-            </p>
+      {/* ─── GOOGLE ADS ─── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold text-sm">G</div>
+              <div>
+                <CardTitle>Google Ads</CardTitle>
+                <p className="text-xs text-t3 mt-0.5">
+                  {connectedAccounts.length} conta{connectedAccounts.length !== 1 ? "s" : ""} conectada{connectedAccounts.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleGenerateMultiloginLink}>
+                <Link2 className="h-3.5 w-3.5 mr-1.5" />
+                Multilogin
+              </Button>
+              <Button size="sm" onClick={() => handleConnect("google_ads")} disabled={connecting === "google_ads"}>
+                {connecting === "google_ads" ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
+                Conectar Conta
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleGenerateMultiloginLink}>
-              <Link2 className="h-4 w-4 mr-2" />
-              Gerar Link Multilogin
-            </Button>
-            <Button size="sm" onClick={() => handleConnect("google_ads")} disabled={connecting === "google_ads"}>
-              {connecting === "google_ads" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
-              Conectar Conta
-            </Button>
-          </div>
-        </div>
-
-        {/* Link Multilogin */}
-        {multiloginLink && (
-          <Card className="border-primary/30">
-            <CardContent className="p-4">
-              <p className="text-sm font-medium mb-2">Link para vincular conta (Multilogin)</p>
-              <p className="text-xs text-t3 mb-3">
-                Envie este link para quem deve autorizar o acesso à conta do Google Ads. Ao clicar, será pedida a autorização do Google e a conta será vinculada automaticamente.
-              </p>
+        </CardHeader>
+        <CardContent>
+          {/* Multilogin Link */}
+          {multiloginLink && (
+            <div className="mb-4 p-3 rounded-lg border border-primary/30 bg-primary/5">
+              <p className="text-xs text-t3 mb-2">Envie este link para quem deve autorizar o acesso:</p>
               <div className="flex gap-2">
                 <Input
                   value={multiloginLink}
                   readOnly
-                  className="text-xs font-mono bg-secondary/50"
+                  className="text-xs font-mono bg-s2 border-input"
                   onClick={(e) => (e.target as HTMLInputElement).select()}
                 />
                 <Button size="sm" variant="outline" onClick={handleCopyLink} className="shrink-0">
-                  {copiedLink ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                  {copiedLink ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Lista de Contas */}
-        {allAccounts.length > 0 ? (
-          <div className="space-y-2">
-            {allAccounts.map((account: any) => (
-              <Card key={account.id} className={`transition-all ${account.status === "connected" ? "border-success/20" : account.status === "expired" ? "border-warning/20" : "border-destructive/20"}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className={`h-10 w-10 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${PLATFORM_COLORS.google_ads}`}>
-                        G
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold truncate">{account.account_name}</h3>
-                          <Badge variant="outline" className="text-[10px] shrink-0">
-                            ID: {account.account_id}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-t3">
-                          {account.currency_code && <span>{account.currency_code}</span>}
-                          {account.timezone && <span>{account.timezone}</span>}
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            Sync: {formatDate(account.last_sync_at)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <StatusBadge status={
-                        account.status === "connected" ? "active" :
-                        account.status === "expired" ? "pending" : "error"
-                      } />
-
-                      {account.status === "connected" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSyncAccount(account.id)}
-                          disabled={syncing === account.id}
-                        >
-                          {syncing === account.id
-                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            : <RefreshCw className="h-3.5 w-3.5" />
-                          }
-                        </Button>
-                      )}
-
-                      {account.status === "expired" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleConnect("google_ads")}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                          Reconectar
-                        </Button>
-                      )}
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleDisconnect(account.id, account.account_name)}
-                        disabled={disconnecting === account.id}
-                      >
-                        {disconnecting === account.id
-                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          : <Unplug className="h-3.5 w-3.5" />
-                        }
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <div className="h-12 w-12 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold mx-auto mb-4">G</div>
-              <p className="text-sm text-t3 mb-4">Nenhuma conta do Google Ads conectada</p>
-              <Button size="sm" onClick={() => handleConnect("google_ads")} disabled={connecting === "google_ads"}>
-                {connecting === "google_ads" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
-                Conectar Primeira Conta
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* UTMIFY */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-heading font-bold flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-bold text-sm">U</div>
-              Utmify
-            </h2>
-            <p className="text-sm text-t3 mt-0.5">
-              Vendas reais via webhook — calcula ROAS real das campanhas
-            </p>
-          </div>
-          {utmifyConfig?.is_active && (
-            <StatusBadge status="active" />
+            </div>
           )}
-        </div>
 
-        <Card>
-          <CardContent className="p-6 space-y-5">
-            {/* Token da API */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Token da API (Utmify)</Label>
-              <p className="text-xs text-t3">
-                Acesse o painel da Utmify → Configurações → API → copie o token e cole aqui.
-              </p>
-              <Input
-                type="password"
-                value={utmifyToken}
-                onChange={(e) => setUtmifyToken(e.target.value)}
-                placeholder="Cole seu token da API da Utmify aqui..."
-                className="font-mono text-sm"
-              />
+          {/* Accounts Table */}
+          {allAccounts.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Conta</th>
+                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border hidden md:table-cell">ID</th>
+                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Status</th>
+                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border hidden lg:table-cell">Ultimo Sync</th>
+                    <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Acoes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allAccounts.map((account: any) => (
+                    <tr key={account.id} className="group">
+                      <td className="py-2.5 border-b border-border text-base font-medium text-t1 group-hover:bg-s2 transition-colors px-1">
+                        {account.account_name}
+                      </td>
+                      <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">
+                        <span className="font-mono text-xs text-t3">{account.account_id}</span>
+                      </td>
+                      <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
+                        <StatusPill
+                          variant={account.status === "connected" ? "active" : account.status === "expired" ? "learning" : "paused"}
+                          label={account.status === "connected" ? "Conectado" : account.status === "expired" ? "Expirado" : "Desconectado"}
+                        />
+                      </td>
+                      <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1 hidden lg:table-cell">
+                        <span className="text-xs text-t3">{formatDate(account.last_sync_at)}</span>
+                      </td>
+                      <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
+                        <div className="flex items-center justify-end gap-1">
+                          {account.status === "connected" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleSyncAccount(account.id)}
+                              disabled={syncing === account.id}
+                            >
+                              {syncing === account.id
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <RefreshCw className="h-3.5 w-3.5" />
+                              }
+                            </Button>
+                          )}
+                          {account.status === "expired" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => handleConnect("google_ads")}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                              Reconectar
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => handleDisconnect(account.id, account.account_name)}
+                            disabled={disconnecting === account.id}
+                          >
+                            {disconnecting === account.id
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              : <Unplug className="h-3.5 w-3.5" />
+                            }
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-
-            {/* Webhook Secret (opcional) */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Webhook Secret (opcional)</Label>
-              <p className="text-xs text-t3">
-                Se a Utmify fornecer um secret para validação HMAC, cole aqui. Deixe vazio se não tiver.
-              </p>
-              <Input
-                type="password"
-                value={utmifySecret}
-                onChange={(e) => setUtmifySecret(e.target.value)}
-                placeholder="Secret para validação HMAC (opcional)"
-                className="font-mono text-sm"
-              />
-            </div>
-
-            {/* Webhook URL para copiar */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">URL do Webhook (configure na Utmify)</Label>
-              <p className="text-xs text-t3">
-                Copie esta URL e cole no painel da Utmify → Configurações → Webhooks → URL de notificação.
-              </p>
-              <div className="flex gap-2">
-                <Input
-                  value={webhookUrl}
-                  readOnly
-                  className="text-xs font-mono bg-secondary/50"
-                  onClick={(e) => (e.target as HTMLInputElement).select()}
-                />
-                <Button size="sm" variant="outline" onClick={handleCopyWebhook} className="shrink-0">
-                  {copiedWebhook ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+          ) : (
+            <EmptyState
+              icon="📡"
+              title="Nenhuma conta conectada"
+              subtitle="Conecte sua primeira conta do Google Ads para sincronizar campanhas."
+              action={
+                <Button size="sm" onClick={() => handleConnect("google_ads")} disabled={connecting === "google_ads"}>
+                  {connecting === "google_ads" ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
+                  Conectar Primeira Conta
                 </Button>
+              }
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ─── UTMIFY ─── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-bold text-sm">U</div>
+              <div>
+                <CardTitle>Utmify</CardTitle>
+                <p className="text-xs text-t3 mt-0.5">Vendas reais via webhook — calcula ROAS real das campanhas</p>
               </div>
             </div>
-
-            {/* Botões */}
-            <div className="flex items-center gap-3 pt-2">
-              <Button onClick={handleSaveUtmify} disabled={savingUtmify}>
-                {savingUtmify && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {utmifyConfig ? "Atualizar Configuração" : "Ativar Utmify"}
-              </Button>
-              {utmifyConfig?.is_active && utmifyConfig?.api_token && (
-                <Button variant="outline" onClick={handleSyncUtmify} disabled={syncingUtmify}>
-                  {syncingUtmify ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                  Testar Conexão / Sincronizar
-                </Button>
-              )}
-              {utmifyConfig?.is_active && (
-                <Button variant="ghost" className="text-destructive" onClick={handleDeactivateUtmify}>
-                  <Unplug className="h-4 w-4 mr-2" />
-                  Desativar
-                </Button>
-              )}
-            </div>
-
-            {/* Status */}
-            {utmifyConfig && (
-              <div className="rounded-lg bg-secondary/30 p-3 text-xs space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-t3">Status</span>
-                  <span className={utmifyConfig.is_active ? "text-success" : "text-destructive"}>
-                    {utmifyConfig.is_active ? "Ativa" : "Inativa"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-t3">Token configurado</span>
-                  <span>{utmifyConfig.api_token ? "Sim" : "Não"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-t3">HMAC Secret</span>
-                  <span>{utmifyConfig.webhook_secret ? "Configurado" : "Não configurado"}</span>
-                </div>
-              </div>
+            {utmifyConfig?.is_active && (
+              <StatusPill variant="active" label="Conectado" />
             )}
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Token da API */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-t3 uppercase tracking-wide font-medium">Token da API (Utmify)</label>
+            <p className="text-xs text-t3">{"Acesse o painel da Utmify > Configuracoes > API > copie o token."}</p>
+            <Input
+              type="password"
+              value={utmifyToken}
+              onChange={(e) => setUtmifyToken(e.target.value)}
+              placeholder="Cole seu token da API da Utmify aqui..."
+              className="font-mono text-sm bg-s2 border-input"
+            />
+          </div>
 
-      {/* SELLX */}
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-lg font-heading font-bold flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400 font-bold text-sm">$</div>
-            SellX — Checkout & Gateway
-          </h2>
-          <p className="text-sm text-t3 mt-0.5">
-            Receba vendas do seu checkout e gateway em tempo real
-          </p>
-        </div>
+          {/* Webhook Secret */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-t3 uppercase tracking-wide font-medium">Webhook Secret (opcional)</label>
+            <Input
+              type="password"
+              value={utmifySecret}
+              onChange={(e) => setUtmifySecret(e.target.value)}
+              placeholder="Secret para validacao HMAC (opcional)"
+              className="font-mono text-sm bg-s2 border-input"
+            />
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* SellxCheckout */}
-          <Card>
-            <CardContent className="p-5 space-y-4">
+          {/* Webhook URL */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-t3 uppercase tracking-wide font-medium">URL do Webhook</label>
+            <p className="text-xs text-t3">{"Cole no painel da Utmify > Configuracoes > Webhooks."}</p>
+            <div className="flex gap-2">
+              <Input
+                value={webhookUrl}
+                readOnly
+                className="text-xs font-mono bg-s2 border-input"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <Button size="sm" variant="outline" onClick={handleCopyWebhook} className="shrink-0">
+                {copiedWebhook ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-3 pt-1">
+            <Button onClick={handleSaveUtmify} disabled={savingUtmify}>
+              {savingUtmify && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {utmifyConfig ? "Atualizar" : "Ativar Utmify"}
+            </Button>
+            {utmifyConfig?.is_active && utmifyConfig?.api_token && (
+              <Button variant="outline" onClick={handleSyncUtmify} disabled={syncingUtmify}>
+                {syncingUtmify ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                Sincronizar
+              </Button>
+            )}
+            {utmifyConfig?.is_active && (
+              <Button variant="ghost" className="text-destructive" onClick={handleDeactivateUtmify}>
+                <Unplug className="h-4 w-4 mr-2" />
+                Desativar
+              </Button>
+            )}
+          </div>
+
+          {/* Status Info */}
+          {utmifyConfig && (
+            <div className="rounded-lg bg-s2 border border-border p-3">
+              <table className="w-full text-xs">
+                <tbody>
+                  <tr>
+                    <td className="text-t3 py-1">Status</td>
+                    <td className="text-right py-1">
+                      <StatusPill
+                        variant={utmifyConfig.is_active ? "active" : "paused"}
+                        label={utmifyConfig.is_active ? "Ativa" : "Inativa"}
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="text-t3 py-1">Token configurado</td>
+                    <td className="text-right py-1 text-t2">{utmifyConfig.api_token ? "Sim" : "Nao"}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-t3 py-1">HMAC Secret</td>
+                    <td className="text-right py-1 text-t2">{utmifyConfig.webhook_secret ? "Configurado" : "Nao configurado"}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ─── SELLX ─── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400 font-bold text-sm">$</div>
+            <div>
+              <CardTitle>SellX — Checkout & Gateway</CardTitle>
+              <p className="text-xs text-t3 mt-0.5">Receba vendas do seu checkout e gateway em tempo real</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* SellxCheckout */}
+            <div className="rounded-lg border border-border bg-s2/30 p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400 font-bold">S</div>
+                <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400 font-bold text-sm">S</div>
                 <div>
-                  <h3 className="text-sm font-semibold">SellxCheckout</h3>
-                  <p className="text-xs text-t3">Vendas do checkout — order.paid, order.refunded</p>
+                  <h3 className="text-base font-medium text-t1">SellxCheckout</h3>
+                  <p className="text-xs text-t3">order.paid, order.refunded</p>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">Webhook URL</Label>
-                <p className="text-[11px] text-t3">
-                  Cole no SellxCheckout → Configurações → Webhooks
-                </p>
+              <div className="space-y-1.5">
+                <label className="text-xs text-t3 uppercase tracking-wide font-medium">Webhook URL</label>
                 <div className="flex gap-2">
-                  <Input value={sellxCheckoutWebhookUrl} readOnly className="text-[11px] font-mono bg-secondary/50" onClick={(e) => (e.target as HTMLInputElement).select()} />
+                  <Input value={sellxCheckoutWebhookUrl} readOnly className="text-[11px] font-mono bg-s2 border-input" onClick={(e) => (e.target as HTMLInputElement).select()} />
                   <Button size="sm" variant="outline" className="shrink-0" onClick={() => {
                     navigator.clipboard.writeText(sellxCheckoutWebhookUrl);
                     setCopiedSellxCheckout(true);
                     toast.success("URL copiada!");
                     setTimeout(() => setCopiedSellxCheckout(false), 2000);
                   }}>
-                    {copiedSellxCheckout ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                    {copiedSellxCheckout ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
                   </Button>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">Webhook Secret (HMAC-SHA256)</Label>
-                <p className="text-[11px] text-t3">
-                  Cole o secret do SellxCheckout para validar assinaturas
-                </p>
+              <div className="space-y-1.5">
+                <label className="text-xs text-t3 uppercase tracking-wide font-medium">Webhook Secret (HMAC-SHA256)</label>
                 <Input
                   type="password"
                   value={sellxCheckoutSecret}
                   onChange={(e) => setSellxCheckoutSecret(e.target.value)}
-                  placeholder="Cole o Webhook Secret do SellxCheckout..."
-                  className="text-xs font-mono"
+                  placeholder="Cole o Webhook Secret..."
+                  className="text-xs font-mono bg-s2 border-input"
                 />
               </div>
-              <div className="rounded-lg bg-secondary/30 p-3 text-xs space-y-1">
-                <p className="font-medium text-t3">Eventos recebidos:</p>
-                <p>order.paid → venda confirmada</p>
-                <p>order.refunded → reembolso</p>
-                <p>order.failed → pagamento falhou</p>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* SellxPay */}
-          <Card>
-            <CardContent className="p-5 space-y-4">
+            {/* SellxPay */}
+            <div className="rounded-lg border border-border bg-s2/30 p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 font-bold">$</div>
+                <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 font-bold text-sm">$</div>
                 <div>
-                  <h3 className="text-sm font-semibold">SellxPay</h3>
-                  <p className="text-xs text-t3">Transações do gateway — PIX, cartão, boleto</p>
+                  <h3 className="text-base font-medium text-t1">SellxPay</h3>
+                  <p className="text-xs text-t3">PIX, cartao, boleto</p>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">Webhook URL (ou Postback URL)</Label>
-                <p className="text-[11px] text-t3">
-                  Configure via API: POST /api/v1/webhooks ou use como postback_url
-                </p>
+              <div className="space-y-1.5">
+                <label className="text-xs text-t3 uppercase tracking-wide font-medium">Webhook URL</label>
                 <div className="flex gap-2">
-                  <Input value={sellxPayWebhookUrl} readOnly className="text-[11px] font-mono bg-secondary/50" onClick={(e) => (e.target as HTMLInputElement).select()} />
+                  <Input value={sellxPayWebhookUrl} readOnly className="text-[11px] font-mono bg-s2 border-input" onClick={(e) => (e.target as HTMLInputElement).select()} />
                   <Button size="sm" variant="outline" className="shrink-0" onClick={() => {
                     navigator.clipboard.writeText(sellxPayWebhookUrl);
                     setCopiedSellxPay(true);
                     toast.success("URL copiada!");
                     setTimeout(() => setCopiedSellxPay(false), 2000);
                   }}>
-                    {copiedSellxPay ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                    {copiedSellxPay ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
                   </Button>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">API Token (Bearer)</Label>
-                <p className="text-[11px] text-t3">
-                  Token de acesso da API SellxPay — permite puxar vendas históricas
-                </p>
+              <div className="space-y-1.5">
+                <label className="text-xs text-t3 uppercase tracking-wide font-medium">API Token (Bearer)</label>
                 <Input
                   type="password"
                   value={sellxPayApiToken}
                   onChange={(e) => setSellxPayApiToken(e.target.value)}
-                  placeholder="Cole o Access Token da API SellxPay..."
-                  className="text-xs font-mono"
+                  placeholder="Cole o Access Token..."
+                  className="text-xs font-mono bg-s2 border-input"
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">Webhook Secret (opcional)</Label>
+              <div className="space-y-1.5">
+                <label className="text-xs text-t3 uppercase tracking-wide font-medium">Webhook Secret (opcional)</label>
                 <Input
                   type="password"
                   value={sellxPaySecret}
                   onChange={(e) => setSellxPaySecret(e.target.value)}
-                  placeholder="Secret do SellxPay (se houver)..."
-                  className="text-xs font-mono"
+                  placeholder="Secret do SellxPay..."
+                  className="text-xs font-mono bg-s2 border-input"
                 />
               </div>
-              <div className="rounded-lg bg-secondary/30 p-3 text-xs space-y-1">
-                <p className="font-medium text-t3">Eventos recebidos:</p>
-                <p>transaction.paid → pagamento confirmado</p>
-                <p>transaction.reversed → estorno/reembolso</p>
-                <p>transaction.chargedback → chargeback</p>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Save + Sync buttons */}
-          <div className="lg:col-span-2 flex items-center gap-3">
+          {/* Save + Sync */}
+          <div className="flex items-center gap-3 mt-4">
             <Button onClick={handleSaveSellx} disabled={savingSellx}>
               {savingSellx && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Salvar Configuração
+              Salvar Configuracao
             </Button>
             {sellxConfig?.config_json?.pay_api_token && (
               <Button
@@ -754,7 +717,7 @@ export default function IntegrationsPage() {
                     });
                     if (error) throw error;
                     toast.success("Vendas importadas!", {
-                      description: `${data?.totalSaved || 0} vendas salvas, ${data?.totalMatched || 0} vinculadas a campanhas (${data?.period})`,
+                      description: `${data?.totalSaved || 0} vendas salvas, ${data?.totalMatched || 0} vinculadas (${data?.period})`,
                       duration: 8000,
                     });
                   } catch (err: any) {
@@ -772,31 +735,39 @@ export default function IntegrationsPage() {
             {sellxConfig && (
               <span className="text-xs text-t3">
                 {sellxConfig.config_json?.pay_api_token ? "API Token configurado" : ""}
-                {sellxConfig.config_json?.checkout_secret ? " • Checkout secret OK" : ""}
+                {sellxConfig.config_json?.checkout_secret ? " · Checkout secret OK" : ""}
               </span>
             )}
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* OUTRAS INTEGRAÇÕES */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-heading font-bold">Outras Integrações</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {otherIntegrations.map((int) => (
-            <Card key={int.type} className="hover:border-primary/20 transition-all">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold">{int.icon}</div>
-                    <div>
-                      <h3 className="text-sm font-semibold">{int.name}</h3>
-                      <p className="text-xs text-t3">{int.description}</p>
-                    </div>
+      {/* ─── OUTRAS INTEGRACOES ─── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Outras Integracoes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {otherIntegrations.map((int) => (
+              <div
+                key={int.type}
+                className="rounded-lg border border-border bg-card p-4 hover:border-[hsl(var(--border2))] transition-all"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`h-9 w-9 rounded-lg flex items-center justify-center font-bold text-sm ${int.color}`}>
+                    {int.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-medium text-t1">{int.name}</h3>
+                    <p className="text-xs text-t3 truncate">{int.description}</p>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <StatusBadge status={int.status === "connected" ? "connected" : "disconnected"} />
+                  <StatusPill
+                    variant={int.status === "connected" ? "active" : "paused"}
+                    label={int.status === "connected" ? "Conectado" : "Desconectado"}
+                  />
                   <Button
                     variant={int.status === "connected" ? "outline" : "default"}
                     size="sm"
@@ -807,11 +778,11 @@ export default function IntegrationsPage() {
                     {int.status === "connected" ? "Reconectar" : int.connectable ? "Conectar" : "Em breve"}
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

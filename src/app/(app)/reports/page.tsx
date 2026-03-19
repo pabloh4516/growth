@@ -5,11 +5,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { useReports } from "@/lib/hooks/use-supabase-data";
 import { createClient } from "@/lib/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { EmptyState } from "@/components/shared/empty-state";
+import { StatusPill } from "@/components/shared/status-pill";
 import {
   Select,
   SelectContent,
@@ -25,21 +26,20 @@ import {
   ChevronDown,
   ChevronUp,
   Eye,
-  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 
 const supabase = createClient();
 
 const REPORT_TYPES = [
-  { value: "daily", label: "Diário" },
+  { value: "daily", label: "Diario" },
   { value: "weekly", label: "Semanal" },
   { value: "monthly", label: "Mensal" },
   { value: "custom", label: "Personalizado" },
 ];
 
 const TYPE_LABELS: Record<string, string> = {
-  daily: "Diário",
+  daily: "Diario",
   weekly: "Semanal",
   monthly: "Mensal",
   custom: "Personalizado",
@@ -126,8 +126,8 @@ export default function ReportsPage() {
 
       if (error) throw error;
 
-      toast.success("Relatório gerado!", {
-        description: `Relatório ${TYPE_LABELS[reportType] || reportType} criado com sucesso.`,
+      toast.success("Relatorio gerado!", {
+        description: `Relatorio ${TYPE_LABELS[reportType] || reportType} criado com sucesso.`,
       });
 
       if (data?.content) {
@@ -136,7 +136,7 @@ export default function ReportsPage() {
 
       queryClient.invalidateQueries({ queryKey: ["reports"] });
     } catch (err: any) {
-      toast.error("Erro ao gerar relatório", {
+      toast.error("Erro ao gerar relatorio", {
         description: err?.message || "Tente novamente.",
       });
     } finally {
@@ -146,7 +146,7 @@ export default function ReportsPage() {
 
   const handleDownload = (report: any) => {
     if (!report.content) {
-      toast.info("Sem conteúdo para download");
+      toast.info("Sem conteudo para download");
       return;
     }
     const blob = new Blob([report.content], { type: "text/plain;charset=utf-8" });
@@ -162,28 +162,32 @@ export default function ReportsPage() {
     setExpandedId(expandedId === id ? null : id);
   };
 
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
+
   return (
-    <div className="space-y-6 animate-fade-up">
+    <div className="space-y-5 animate-fade-up">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-heading font-bold text-t1">Relatórios</h1>
-        <p className="text-sm text-t3 mt-1">Gere e visualize relatórios de marketing com inteligência artificial</p>
+        <h1 className="font-heading text-xl font-bold text-t1">Relatorios</h1>
+        <p className="text-sm text-t3 mt-0.5">Gere e visualize relatorios de marketing com IA</p>
       </div>
 
-      {/* Generate Report Section */}
+      {/* Generate Report */}
       <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <Sparkles className="h-5 w-5 text-primary" />
-            <h2 className="text-base font-heading font-semibold">
-              Gerar Relatório
-            </h2>
-          </div>
-
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Gerar Relatorio
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-            <div className="space-y-2">
-              <Label htmlFor="report-type">Tipo de Relatório</Label>
+            <div className="space-y-1.5">
+              <label className="text-xs text-t3 uppercase tracking-wide font-medium">Tipo</label>
               <Select value={reportType} onValueChange={setReportType}>
-                <SelectTrigger id="report-type">
+                <SelectTrigger className="bg-s2 border-input">
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -198,23 +202,22 @@ export default function ReportsPage() {
 
             {reportType === "custom" && (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="date-from">Data Início</Label>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-t3 uppercase tracking-wide font-medium">Data Inicio</label>
                   <Input
-                    id="date-from"
                     type="date"
                     value={dateFrom}
                     onChange={(e) => setDateFrom(e.target.value)}
+                    className="bg-s2 border-input"
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="date-to">Data Fim</Label>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-t3 uppercase tracking-wide font-medium">Data Fim</label>
                   <Input
-                    id="date-to"
                     type="date"
                     value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
+                    className="bg-s2 border-input"
                   />
                 </div>
               </>
@@ -234,24 +237,22 @@ export default function ReportsPage() {
                 ) : (
                   <Sparkles className="h-4 w-4 mr-2" />
                 )}
-                {generating ? "Gerando..." : "Gerar Relatório"}
+                {generating ? "Gerando..." : "Gerar Relatorio"}
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Preview (shown after generation) */}
+      {/* Preview */}
       {previewContent && (
         <Card className="border-primary/30">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Eye className="h-5 w-5 text-primary" />
-                <h2 className="text-base font-heading font-semibold">
-                  Preview do Relatório
-                </h2>
-              </div>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-primary" />
+                Preview do Relatorio
+              </CardTitle>
               <Button
                 variant="ghost"
                 size="sm"
@@ -260,6 +261,8 @@ export default function ReportsPage() {
                 Fechar
               </Button>
             </div>
+          </CardHeader>
+          <CardContent>
             <div className="prose prose-invert max-w-none">
               {renderMarkdown(previewContent)}
             </div>
@@ -267,129 +270,117 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      {/* Report History */}
-      <div>
-        <div className="flex items-center gap-2 mb-4">
-          <Calendar className="h-5 w-5 text-t3" />
-          <h2 className="text-base font-heading font-semibold">
-            Histórico de Relatórios
-          </h2>
-        </div>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      {/* Report History Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Historico de Relatorios</CardTitle>
+            <span className="text-sm text-t3">{reports?.length || 0} relatorios</span>
           </div>
-        ) : reports && reports.length > 0 ? (
-          <div className="space-y-3">
-            {reports.map((report: any) => {
-              const isExpanded = expandedId === report.id;
-
-              return (
-                <Card key={report.id} className="hover:border-primary/20 transition-all">
-                  <CardContent className="p-0">
-                    {/* Row */}
-                    <div
-                      className="p-4 flex items-center gap-4 cursor-pointer"
-                      onClick={() => toggleExpand(report.id)}
-                      role="button"
-                      tabIndex={0}
-                      aria-expanded={isExpanded}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          toggleExpand(report.id);
-                        }
-                      }}
-                    >
-                      <FileText className="h-5 w-5 text-primary shrink-0" />
-
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">
-                          Relatório{" "}
-                          {TYPE_LABELS[report.type] || report.type?.replace(/_/g, " ")}
-                        </p>
-                        <p className="text-xs text-t3">
-                          {report.period_start &&
-                            new Date(report.period_start).toLocaleDateString(
-                              "pt-BR"
-                            )}{" "}
-                          {report.period_start && report.period_end && "—"}{" "}
-                          {report.period_end &&
-                            new Date(report.period_end).toLocaleDateString(
-                              "pt-BR"
-                            )}
-                          {!report.period_start && report.created_at && (
-                            <>
-                              Gerado em{" "}
-                              {new Date(report.created_at).toLocaleDateString(
-                                "pt-BR",
-                                {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                }
-                              )}
-                            </>
-                          )}
-                        </p>
-                      </div>
-
-                      <Badge variant="secondary" className="shrink-0">
-                        {TYPE_LABELS[report.type] || report.type}
-                      </Badge>
-
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownload(report);
-                          }}
-                          aria-label="Download relatório"
+        </CardHeader>
+        <CardContent>
+          {reports && reports.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Relatorio</th>
+                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Tipo</th>
+                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border hidden md:table-cell">Periodo</th>
+                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Data</th>
+                    <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Acoes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reports.map((report: any) => {
+                    const isExpanded = expandedId === report.id;
+                    return (
+                      <>
+                        <tr
+                          key={report.id}
+                          className="group cursor-pointer"
+                          onClick={() => toggleExpand(report.id)}
                         >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        {isExpanded ? (
-                          <ChevronUp className="h-4 w-4 text-t3" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-t3" />
+                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-primary shrink-0" />
+                              <span className="font-medium text-t1">
+                                Relatorio {TYPE_LABELS[report.type] || report.type?.replace(/_/g, " ")}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
+                            <StatusPill
+                              variant={report.type === "daily" ? "active" : report.type === "weekly" ? "learning" : "review"}
+                              label={TYPE_LABELS[report.type] || report.type}
+                            />
+                          </td>
+                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">
+                            {report.period_start && report.period_end ? (
+                              <span className="text-sm text-t3">
+                                {new Date(report.period_start).toLocaleDateString("pt-BR")} — {new Date(report.period_end).toLocaleDateString("pt-BR")}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-t3">—</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
+                            <span className="text-sm text-t3">
+                              {report.created_at
+                                ? new Date(report.created_at).toLocaleDateString("pt-BR", {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  })
+                                : "—"}
+                            </span>
+                          </td>
+                          <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownload(report);
+                                }}
+                                aria-label="Download relatorio"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </Button>
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4 text-t3" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-t3" />
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                        {isExpanded && report.content && (
+                          <tr key={`${report.id}-content`}>
+                            <td colSpan={5} className="border-b border-border bg-s2/50">
+                              <div className="p-4 max-h-96 overflow-y-auto">
+                                {renderMarkdown(report.content)}
+                              </div>
+                            </td>
+                          </tr>
                         )}
-                      </div>
-                    </div>
-
-                    {/* Expandable Content */}
-                    {isExpanded && report.content && (
-                      <div className="overflow-hidden">
-                        <div className="px-4 pb-4 pt-0 border-t border-border/50">
-                          <div className="mt-4 p-4 rounded-lg bg-background/50 max-h-96 overflow-y-auto">
-                            {renderMarkdown(report.content)}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="py-16 text-center">
-              <FileText className="h-12 w-12 text-t3/30 mx-auto mb-4" />
-              <p className="text-t3">
-                Nenhum relatório gerado ainda.
-              </p>
-              <p className="text-xs text-t3 mt-1">
-                Use o formulário acima para gerar seu primeiro relatório.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+                      </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState
+              icon="📄"
+              title="Nenhum relatorio gerado"
+              subtitle="Use o formulario acima para gerar seu primeiro relatorio com IA."
+            />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

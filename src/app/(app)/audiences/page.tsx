@@ -5,21 +5,30 @@ import { useAudiences } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { generateAudiences } from "@/lib/services/edge-functions";
 import { createClient } from "@/lib/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { StatusBadge } from "@/components/shared/status-badge";
+import { MetricCard } from "@/components/shared/metric-card";
+import { StatusPill } from "@/components/shared/status-pill";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, UsersRound, Sparkles, Upload } from "lucide-react";
+import { Loader2, Plus, Sparkles, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatCompact } from "@/lib/utils";
 
 const supabase = createClient();
 
 const TYPE_LABELS: Record<string, string> = {
   custom: "Custom", lookalike: "Lookalike", remarketing: "Remarketing", seed: "Seed",
 };
+
+function statusToVariant(status: string): "active" | "paused" | "learning" | "review" {
+  if (status === "ready" || status === "synced") return "active";
+  if (status === "building") return "learning";
+  return "paused";
+}
 
 export default function AudiencesPage() {
   const orgId = useOrgId();
@@ -37,7 +46,7 @@ export default function AudiencesPage() {
         body: { audienceId },
       });
       if (error) throw error;
-      toast.success("Audiência sincronizada com Google Ads!");
+      toast.success("Audiencia sincronizada com Google Ads!");
       queryClient.invalidateQueries({ queryKey: ["audiences"] });
     } catch (err: any) {
       toast.error("Erro ao sincronizar", { description: err?.message });
@@ -58,7 +67,7 @@ export default function AudiencesPage() {
     });
     if (error) toast.error("Erro", { description: error.message });
     else {
-      toast.success("Público criado!");
+      toast.success("Publico criado!");
       setForm({ name: "", type: "custom", source_type: "crm_list" });
       setCreating(false);
       queryClient.invalidateQueries({ queryKey: ["audiences"] });
@@ -70,10 +79,10 @@ export default function AudiencesPage() {
     setGenerating(true);
     try {
       await generateAudiences(orgId, "top_ltv");
-      toast.success("Audiências geradas!", { description: "Novos públicos foram criados com base nos seus dados." });
+      toast.success("Audiencias geradas!", { description: "Novos publicos foram criados com base nos seus dados." });
       queryClient.invalidateQueries({ queryKey: ["audiences"] });
     } catch (err: any) {
-      toast.error("Erro ao gerar audiências", { description: err?.message });
+      toast.error("Erro ao gerar audiencias", { description: err?.message });
     } finally {
       setGenerating(false);
     }
@@ -83,28 +92,46 @@ export default function AudiencesPage() {
     return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
+  const list = audiences || [];
+  const totalContacts = list.reduce((s: number, a: any) => s + (a.contact_count || 0), 0);
+  const readyCount = list.filter((a: any) => a.status === "ready" || a.status === "synced").length;
+  const buildingCount = list.filter((a: any) => a.status === "building").length;
+
   return (
-    <div className="space-y-6 animate-fade-up">
+    <div className="space-y-5 animate-fade-up">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-t1">Públicos-Alvo</h1>
-          <p className="text-sm text-t3">Gerencie e gere audiências com IA</p>
+          <h1 className="font-heading text-xl font-bold text-t1">Publicos-Alvo</h1>
+          <p className="text-sm text-t3">Gerencie e gere audiencias com IA</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleGenerate} disabled={generating}>
+          <Button variant="outline" size="sm" onClick={handleGenerate} disabled={generating}>
             {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
             {generating ? "Gerando..." : "Gerar com IA"}
           </Button>
-          <Button onClick={() => setCreating(true)}>
+          <Button size="sm" onClick={() => setCreating(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Criar Público
+            Criar Publico
           </Button>
         </div>
       </div>
+
+      {/* Metrics */}
+      {list.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <MetricCard label="Total Publicos" value={String(list.length)} gradient="purple" />
+          <MetricCard label="Contatos" value={formatCompact(totalContacts)} gradient="blue" />
+          <MetricCard label="Prontos" value={String(readyCount)} gradient="green" />
+          <MetricCard label="Em Construcao" value={String(buildingCount)} gradient="amber" />
+        </div>
+      )}
+
+      {/* Create form */}
       {creating && (
         <Card className="border-primary/30">
           <CardContent className="p-4 flex items-end gap-3">
-            <div className="flex-1 space-y-2"><Label>Nome</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Público de compradores" /></div>
+            <div className="flex-1 space-y-2"><Label>Nome</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Publico de compradores" /></div>
             <div className="w-36 space-y-2"><Label>Tipo</Label>
               <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
                 <option value="custom">Custom</option><option value="lookalike">Lookalike</option><option value="remarketing">Remarketing</option>
@@ -116,43 +143,85 @@ export default function AudiencesPage() {
         </Card>
       )}
 
-      {audiences && audiences.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {audiences.map((aud: any) => (
-            <Card key={aud.id} className="hover:shadow-md transition-all cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <UsersRound className="h-4 w-4 text-primary" />
-                    <h3 className="text-sm font-semibold">{aud.name}</h3>
-                  </div>
-                  <StatusBadge status={aud.status === "ready" || aud.status === "synced" ? "active" : aud.status === "building" ? "pending" : "error"} />
-                </div>
-                <div className="flex gap-2 mb-2">
-                  <Badge variant="secondary">{TYPE_LABELS[aud.type] || aud.type}</Badge>
-                  <Badge variant="outline">{aud.source_type || "—"}</Badge>
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-xs text-t3">{aud.contact_count || 0} contatos</p>
-                  {aud.status === "ready" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs"
-                      onClick={(e) => { e.stopPropagation(); handleSyncToGoogle(aud.id); }}
-                      disabled={syncingId === aud.id}
-                    >
-                      {syncingId === aud.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Upload className="h-3 w-3 mr-1" />}
-                      Sync Google
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      {/* Table */}
+      {list.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Audiencias</CardTitle>
+              <span className="text-sm text-t3">{list.length} publicos</span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Nome</th>
+                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Tipo</th>
+                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Fonte</th>
+                    <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Contatos</th>
+                    <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Status</th>
+                    <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Acao</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((aud: any) => (
+                    <tr key={aud.id} className="group">
+                      <td className="py-2.5 border-b border-border text-sm font-medium text-t1 group-hover:bg-s2 transition-colors px-1 max-w-[220px] truncate">
+                        {aud.name}
+                      </td>
+                      <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
+                        <Badge variant="secondary">{TYPE_LABELS[aud.type] || aud.type}</Badge>
+                      </td>
+                      <td className="py-2.5 border-b border-border text-sm text-t2 group-hover:bg-s2 transition-colors px-1">
+                        {aud.source_type || "\u2014"}
+                      </td>
+                      <td className="py-2.5 border-b border-border text-sm text-t2 text-right font-mono group-hover:bg-s2 transition-colors px-1">
+                        {formatCompact(aud.contact_count || 0)}
+                      </td>
+                      <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
+                        <StatusPill
+                          variant={statusToVariant(aud.status)}
+                          label={aud.status === "synced" ? "Sincronizado" : aud.status === "ready" ? "Pronto" : aud.status === "building" ? "Construindo" : aud.status}
+                        />
+                      </td>
+                      <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
+                        {aud.status === "ready" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => handleSyncToGoogle(aud.id)}
+                            disabled={syncingId === aud.id}
+                          >
+                            {syncingId === aud.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Upload className="h-3 w-3 mr-1" />}
+                            Sync Google
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
-        <Card><CardContent className="py-16 text-center"><UsersRound className="h-12 w-12 text-t3/30 mx-auto mb-4" /><p className="text-t3">Nenhum público criado.</p></CardContent></Card>
+        <Card>
+          <CardContent>
+            <EmptyState
+              icon="\ud83d\udc65"
+              title="Nenhum publico criado"
+              subtitle="Crie publicos-alvo manualmente ou gere automaticamente com IA."
+              action={
+                <Button size="sm" onClick={() => setCreating(true)}>
+                  <Plus className="h-4 w-4 mr-2" />Criar Publico
+                </Button>
+              }
+            />
+          </CardContent>
+        </Card>
       )}
     </div>
   );

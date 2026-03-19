@@ -1,15 +1,15 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useOrgId } from "@/lib/hooks/use-org";
-import { formatBRL } from "@/lib/utils";
-import { KPICard } from "@/components/shared/kpi-card";
-import { DataTable } from "@/components/shared/data-table";
+import { formatBRL, formatNumber, formatCompact } from "@/lib/utils";
+import { MetricCard } from "@/components/shared/metric-card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, DollarSign, Users, TrendingUp, Repeat } from "lucide-react";
-import { type ColumnDef } from "@tanstack/react-table";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Loader2 } from "lucide-react";
 
 const supabase = createClient();
 
@@ -20,24 +20,9 @@ const SEGMENT_LABELS: Record<string, string> = {
   inativo: "Inativo (90d+)",
 };
 
-const segmentColumns: ColumnDef<any, any>[] = [
-  { accessorKey: "segment", header: "Segmento", cell: ({ row }) => <span className="font-medium capitalize">{SEGMENT_LABELS[row.original.segment] || row.original.segment}</span> },
-  { accessorKey: "avg_ltv", header: "LTV Médio", cell: ({ row }) => <span className="font-mono">{formatBRL(row.original.avg_ltv || 0)}</span> },
-  { accessorKey: "contact_count", header: "Clientes", cell: ({ row }) => <span className="font-mono">{row.original.contact_count || 0}</span> },
-  { accessorKey: "avg_purchase_frequency", header: "Freq. Compra", cell: ({ row }) => <span className="font-mono">{(row.original.avg_purchase_frequency || 0).toFixed(1)}x</span> },
-  { accessorKey: "avg_ticket", header: "Ticket Médio", cell: ({ row }) => <span className="font-mono">{formatBRL(row.original.avg_ticket || 0)}</span> },
-];
-
-const customerColumns: ColumnDef<any, any>[] = [
-  { accessorKey: "email", header: "Cliente", cell: ({ row }) => <span className="text-sm">{row.original.email}</span> },
-  { accessorKey: "total_revenue", header: "Receita Total", cell: ({ row }) => <span className="font-mono font-semibold text-success">{formatBRL(row.original.total_revenue)}</span> },
-  { accessorKey: "purchase_count", header: "Compras", cell: ({ row }) => <span className="font-mono">{row.original.purchase_count}</span> },
-  { accessorKey: "avg_ticket", header: "Ticket Médio", cell: ({ row }) => <span className="font-mono">{formatBRL(row.original.avg_ticket)}</span> },
-  { accessorKey: "segment", header: "Segmento", cell: ({ row }) => <span className="capitalize text-xs">{SEGMENT_LABELS[row.original.segment] || row.original.segment}</span> },
-];
-
 export default function LTVPage() {
   const orgId = useOrgId();
+  const [activeTab, setActiveTab] = useState("segments");
 
   // Try ltv_by_segment table first (populated by cron), fallback to real-time calc from utmify_sales
   const { data: segments, isLoading: segmentsLoading } = useQuery({
@@ -115,56 +100,182 @@ export default function LTVPage() {
   const displaySegments = segments || customerData?.segments || [];
   const displayCustomers = customerData?.customers || [];
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
+  const avgLTV = useMemo(() => {
+    if (displaySegments.length === 0) return 0;
+    const totalWeighted = displaySegments.reduce((sum: number, s: any) => sum + (s.avg_ltv || 0) * (s.contact_count || 1), 0);
+    const totalCount = displaySegments.reduce((sum: number, s: any) => sum + (s.contact_count || 1), 0);
+    return totalCount > 0 ? totalWeighted / totalCount : 0;
+  }, [displaySegments]);
 
-  const avgLTV = displaySegments.length > 0
-    ? displaySegments.reduce((sum: number, s: any) => sum + (s.avg_ltv || 0) * (s.contact_count || 1), 0) / displaySegments.reduce((sum: number, s: any) => sum + (s.contact_count || 1), 0)
-    : 0;
   const totalCustomers = displaySegments.reduce((sum: number, s: any) => sum + (s.contact_count || 0), 0);
   const vipCount = displaySegments.find((s: any) => s.segment === "vip")?.contact_count || 0;
   const recurrentCount = displaySegments.find((s: any) => s.segment === "recorrente")?.contact_count || 0;
 
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
+
   return (
-    <div className="space-y-6 animate-fade-up">
-      <div>
-        <h1 className="text-2xl font-heading font-bold text-t1">Análise de LTV</h1>
-        <p className="text-sm text-t3">Lifetime Value por segmento — calculado das vendas reais do checkout</p>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KPICard title="LTV Médio" value={formatBRL(avgLTV)} delay={0} icon={<DollarSign className="h-4 w-4" />} />
-        <KPICard title="Total Clientes" value={String(totalCustomers)} delay={1} icon={<Users className="h-4 w-4" />} />
-        <KPICard title="Clientes VIP" value={String(vipCount)} delay={2} icon={<TrendingUp className="h-4 w-4" />} />
-        <KPICard title="Recorrentes" value={String(recurrentCount)} delay={3} icon={<Repeat className="h-4 w-4" />} />
+    <div className="space-y-5 animate-fade-up">
+      {/* Metric cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <MetricCard label="LTV Medio" value={formatBRL(avgLTV)} gradient="purple" />
+        <MetricCard label="Total Clientes" value={formatCompact(totalCustomers)} gradient="blue" />
+        <MetricCard label="Clientes VIP" value={String(vipCount)} gradient="green" />
+        <MetricCard label="Recorrentes" value={String(recurrentCount)} gradient="amber" />
       </div>
 
-      {displaySegments.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle className="text-base font-heading">LTV por Segmento</CardTitle></CardHeader>
-          <CardContent>
-            <div className="h-[250px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={displaySegments.map((s: any) => ({ ...s, label: SEGMENT_LABELS[s.segment] || s.segment }))}>
-                  <XAxis dataKey="label" tick={{ fill: "hsl(240 5% 60%)", fontSize: 11 }} />
-                  <YAxis tick={{ fill: "hsl(240 5% 60%)", fontSize: 11 }} />
-                  <Tooltip contentStyle={{ backgroundColor: "hsl(240 17% 6%)", border: "1px solid hsl(240 10% 18%)", borderRadius: "8px" }} />
-                  <Bar dataKey="avg_ltv" name="LTV Médio" fill="#6C5CE7" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="segments">
+            Segmentos
+            {displaySegments.length > 0 && (
+              <span className="ml-1.5 text-2xs bg-s3 text-t2 px-1.5 py-0.5 rounded-[5px] font-medium">
+                {displaySegments.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="customers">
+            Top Clientes
+            {displayCustomers.length > 0 && (
+              <span className="ml-1.5 text-2xs bg-s3 text-t2 px-1.5 py-0.5 rounded-[5px] font-medium">
+                {displayCustomers.length}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      <DataTable data={displaySegments} columns={segmentColumns} searchPlaceholder="Buscar segmento..." />
+        <TabsContent value="segments">
+          {displaySegments.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>LTV por Segmento</CardTitle>
+                  <span className="text-sm text-t3">{displaySegments.length} segmentos</span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Segmento</th>
+                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">LTV Medio</th>
+                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Clientes</th>
+                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Freq. Compra</th>
+                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Ticket Medio</th>
+                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">% do Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displaySegments.map((s: any) => {
+                        const pct = totalCustomers > 0 ? ((s.contact_count || 0) / totalCustomers) * 100 : 0;
+                        return (
+                          <tr key={s.segment} className="group cursor-default">
+                            <td className="py-2.5 border-b border-border text-base text-t1 font-medium group-hover:bg-s2 transition-colors px-1">
+                              {SEGMENT_LABELS[s.segment] || s.segment}
+                            </td>
+                            <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
+                              {formatBRL(s.avg_ltv || 0)}
+                            </td>
+                            <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
+                              {formatNumber(s.contact_count || 0)}
+                            </td>
+                            <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
+                              {(s.avg_purchase_frequency || 0).toFixed(1)}x
+                            </td>
+                            <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
+                              {formatBRL(s.avg_ticket || 0)}
+                            </td>
+                            <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
+                              <div className="flex items-center gap-2">
+                                <div className="w-[50px] h-[3px] bg-s3 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                                </div>
+                                <span className="text-base text-t2">{pct.toFixed(1)}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="py-0">
+                <EmptyState
+                  icon="💰"
+                  title="Sem dados de segmentos"
+                  subtitle="Os segmentos de LTV aparecerão apos vendas confirmadas no checkout."
+                />
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
-      {displayCustomers.length > 0 && (
-        <>
-          <h3 className="text-sm font-heading font-semibold mt-8">Top Clientes por Receita</h3>
-          <DataTable data={displayCustomers} columns={customerColumns} searchPlaceholder="Buscar cliente..." />
-        </>
-      )}
+        <TabsContent value="customers">
+          {displayCustomers.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Top Clientes por Receita</CardTitle>
+                  <span className="text-sm text-t3">{displayCustomers.length} clientes</span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Cliente</th>
+                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Receita Total</th>
+                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Compras</th>
+                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Ticket Medio</th>
+                        <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Segmento</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayCustomers.map((c: any, idx: number) => (
+                        <tr key={idx} className="group cursor-default">
+                          <td className="py-2.5 border-b border-border text-base text-t1 font-medium group-hover:bg-s2 transition-colors px-1 max-w-[250px] truncate">
+                            {c.email}
+                          </td>
+                          <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
+                            <span className="text-base font-semibold text-success">{formatBRL(c.total_revenue)}</span>
+                          </td>
+                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
+                            {c.purchase_count}
+                          </td>
+                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
+                            {formatBRL(c.avg_ticket)}
+                          </td>
+                          <td className="py-2.5 border-b border-border text-base text-t2 group-hover:bg-s2 transition-colors px-1">
+                            <span className="text-xs capitalize">{SEGMENT_LABELS[c.segment] || c.segment}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="py-0">
+                <EmptyState
+                  icon="👥"
+                  title="Sem dados de clientes"
+                  subtitle="Os clientes aparecerão apos vendas confirmadas no checkout."
+                />
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

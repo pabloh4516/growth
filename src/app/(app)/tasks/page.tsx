@@ -4,8 +4,11 @@ import { useState } from "react";
 import { useTasks } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { createClient } from "@/lib/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { MetricCard } from "@/components/shared/metric-card";
+import { StatusPill } from "@/components/shared/status-pill";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,10 +21,10 @@ import { useQueryClient } from "@tanstack/react-query";
 const supabase = createClient();
 
 const COLUMNS = [
-  { id: "todo", label: "A Fazer", color: "border-t-muted-foreground" },
-  { id: "in_progress", label: "Em Andamento", color: "border-t-primary" },
-  { id: "review", label: "Revisão", color: "border-t-warning" },
-  { id: "done", label: "Concluído", color: "border-t-success" },
+  { id: "todo", label: "A Fazer", variant: "paused" as const },
+  { id: "in_progress", label: "Em Andamento", variant: "learning" as const },
+  { id: "review", label: "Revisao", variant: "review" as const },
+  { id: "done", label: "Concluido", variant: "active" as const },
 ];
 
 const PRIORITY_BADGE: Record<string, "destructive" | "warning" | "secondary" | "info"> = {
@@ -34,21 +37,19 @@ function DraggableTaskCard({ task }: { task: any }) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
-      <Card className="cursor-grab active:cursor-grabbing hover:shadow-md transition-all">
-        <CardContent className="p-3">
-          <div className="flex items-start gap-2">
-            <div {...listeners}><GripVertical className="h-4 w-4 text-t3 mt-0.5 shrink-0" /></div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">{task.title}</p>
-              {task.description && <p className="text-xs text-t3 line-clamp-2 mt-1">{task.description}</p>}
-              <div className="flex items-center gap-2 mt-2">
-                <Badge variant={PRIORITY_BADGE[task.priority] || "secondary"} className="text-[10px]">{task.priority}</Badge>
-                {task.due_date && <span className="text-[10px] text-t3">{new Date(task.due_date).toLocaleDateString("pt-BR")}</span>}
-              </div>
+      <div className="bg-s2 border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-[hsl(var(--border2))] transition-all">
+        <div className="flex items-start gap-2">
+          <div {...listeners}><GripVertical className="h-4 w-4 text-t3 mt-0.5 shrink-0" /></div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-t1">{task.title}</p>
+            {task.description && <p className="text-xs text-t3 line-clamp-2 mt-1">{task.description}</p>}
+            <div className="flex items-center gap-2 mt-2">
+              <Badge variant={PRIORITY_BADGE[task.priority] || "secondary"} className="text-[10px]">{task.priority}</Badge>
+              {task.due_date && <span className="text-[10px] text-t3">{new Date(task.due_date).toLocaleDateString("pt-BR")}</span>}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
@@ -106,47 +107,86 @@ export default function TasksPage() {
 
   if (isLoading) return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
+  const list = tasks || [];
+  const todoCount = list.filter((t: any) => t.status === "todo").length;
+  const inProgressCount = list.filter((t: any) => t.status === "in_progress").length;
+  const doneCount = list.filter((t: any) => t.status === "done").length;
+
   return (
-    <div className="space-y-6 animate-fade-up">
+    <div className="space-y-5 animate-fade-up">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-t1">Equipe & Tarefas</h1>
+          <h1 className="font-heading text-xl font-bold text-t1">Equipe & Tarefas</h1>
           <p className="text-sm text-t3">Kanban de tarefas do time</p>
         </div>
-        <Button onClick={() => setCreating(true)}><Plus className="h-4 w-4 mr-2" />Nova Tarefa</Button>
+        <Button size="sm" onClick={() => setCreating(true)}><Plus className="h-4 w-4 mr-2" />Nova Tarefa</Button>
       </div>
 
+      {/* Metrics */}
+      {list.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <MetricCard label="Total Tarefas" value={String(list.length)} gradient="purple" />
+          <MetricCard label="A Fazer" value={String(todoCount)} gradient="amber" />
+          <MetricCard label="Em Andamento" value={String(inProgressCount)} gradient="blue" />
+          <MetricCard label="Concluidas" value={String(doneCount)} gradient="green" />
+        </div>
+      )}
+
+      {/* Create form */}
       {creating && (
         <Card className="border-primary/30">
           <CardContent className="p-4 flex items-end gap-3">
-            <div className="flex-1 space-y-2"><Label>Título</Label><Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Descreva a tarefa..." /></div>
+            <div className="flex-1 space-y-2"><Label>Titulo</Label><Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Descreva a tarefa..." /></div>
             <Button onClick={handleCreate} disabled={!newTitle.trim()}>Criar</Button>
             <Button variant="ghost" onClick={() => setCreating(false)}>Cancelar</Button>
           </CardContent>
         </Card>
       )}
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin">
-          {COLUMNS.map((col) => {
-            const colTasks = tasks?.filter((t: any) => t.status === col.id) || [];
-            return (
-              <div key={col.id} className="min-w-[280px] flex-shrink-0">
-                <div className={cn("border-t-2 rounded-t-lg px-3 py-2 mb-3 bg-muted/30", col.color)}>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">{col.label}</h3>
-                    <Badge variant="secondary" className="text-[10px]">{colTasks.length}</Badge>
+      {/* Kanban board */}
+      {list.length > 0 ? (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-thin">
+            {COLUMNS.map((col) => {
+              const colTasks = list.filter((t: any) => t.status === col.id);
+              return (
+                <div key={col.id} className="min-w-[270px] flex-shrink-0">
+                  <div className="flex items-center justify-between px-1 mb-3">
+                    <div className="flex items-center gap-2">
+                      <StatusPill variant={col.variant} label={col.label} />
+                    </div>
+                    <span className="text-xs text-t3 font-mono">{colTasks.length}</span>
                   </div>
+                  <DroppableColumn columnId={col.id}>
+                    {colTasks.map((task: any) => <DraggableTaskCard key={task.id} task={task} />)}
+                    {colTasks.length === 0 && (
+                      <div className="py-8 text-center text-xs text-t3 border border-dashed border-border rounded-lg">
+                        Arraste tarefas aqui
+                      </div>
+                    )}
+                  </DroppableColumn>
                 </div>
-                <DroppableColumn columnId={col.id}>
-                  {colTasks.map((task: any) => <DraggableTaskCard key={task.id} task={task} />)}
-                  {colTasks.length === 0 && <div className="py-8 text-center text-xs text-t3 border border-dashed rounded-lg">Arraste tarefas aqui</div>}
-                </DroppableColumn>
-              </div>
-            );
-          })}
-        </div>
-      </DndContext>
+              );
+            })}
+          </div>
+        </DndContext>
+      ) : (
+        <Card>
+          <CardContent>
+            <EmptyState
+              icon="\u2705"
+              title="Nenhuma tarefa criada"
+              subtitle="Crie tarefas para organizar o trabalho do seu time."
+              action={
+                <Button size="sm" onClick={() => setCreating(true)}>
+                  <Plus className="h-4 w-4 mr-2" />Nova Tarefa
+                </Button>
+              }
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
