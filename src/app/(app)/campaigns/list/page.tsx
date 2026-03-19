@@ -605,11 +605,11 @@ export default function CampaignsListPage() {
               )}
 
               {/* Table */}
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="overflow-x-auto">
+              <Card className="flex flex-col" style={{ height: "calc(100vh - 280px)", minHeight: "400px" }}>
+                <CardContent className="pt-4 flex-1 overflow-hidden flex flex-col">
+                  <div className="overflow-x-auto flex-1 overflow-y-auto relative">
                     <table className="w-full">
-                      <thead>
+                      <thead className="sticky top-0 bg-s1 z-10">
                         <tr>
                           <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border w-8">
                             <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
@@ -774,7 +774,7 @@ export default function CampaignsListPage() {
                       </tbody>
                       {/* ─── Totals Row (sticky footer like TrackVio) ─── */}
                       {filtered.length > 0 && (
-                        <tfoot className="bg-s2 border-t-2 border-primary/30 sticky bottom-0">
+                        <tfoot className="bg-s2 border-t-2 border-primary/30 sticky bottom-0 z-10">
                           {(() => {
                             const t = filtered.reduce((acc: any, c: any) => ({
                               spend: acc.spend + c._m.spend,
