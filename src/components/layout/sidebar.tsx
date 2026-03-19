@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
@@ -267,8 +267,6 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const fullUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
@@ -288,11 +286,9 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard" || pathname === "/";
-    // Handle hrefs with query params (e.g. /campaigns/list?tab=conjuntos)
-    if (href.includes("?")) {
-      return fullUrl === href;
-    }
-    return pathname === href || pathname.startsWith(href + "/");
+    // For hrefs with query params, match on the path portion
+    const [hrefPath] = href.split("?");
+    return pathname === hrefPath || pathname.startsWith(hrefPath + "/");
   };
 
   const toggleExpand = (href: string) => {

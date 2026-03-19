@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCampaigns, useAdAccounts } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
@@ -11,6 +11,7 @@ import { getCampaignMetricsForPeriod } from "@/lib/services/supabase-queries";
 import { formatBRL, formatCompact, formatNumber, cn } from "@/lib/utils";
 import { StatusPill } from "@/components/shared/status-pill";
 import { RoasValue } from "@/components/shared/roas-value";
+import { ColumnSelector, getDefaultVisibleColumns } from "@/components/shared/column-selector";
 import { AdCard } from "@/components/shared/ad-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
@@ -49,6 +50,7 @@ import {
   Unplug,
   ExternalLink,
   Search,
+  Download,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -138,14 +140,16 @@ const typeLabel = (c: any) => {
 // ═══════════════════════════════════════════════════════
 export default function CampaignsListPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const orgId = useOrgId();
   const queryClient = useQueryClient();
   const { days } = usePeriodStore();
 
-  // Tab state — read from URL or default
-  const initialTab = (searchParams.get("tab") as TabKey) || "campanhas";
-  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
+  // Tab state — default to campanhas, read ?tab= on mount
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    if (typeof window === "undefined") return "campanhas";
+    const params = new URLSearchParams(window.location.search);
+    return (params.get("tab") as TabKey) || "campanhas";
+  });
 
   // Campaigns data
   const { data: campaigns, isLoading: loadingCampaigns, refetch: refetchCampaigns } = useCampaigns(days);
@@ -164,6 +168,7 @@ export default function CampaignsListPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(getDefaultVisibleColumns);
 
   // Budget dialog
   const [budgetDialog, setBudgetDialog] = useState<{ id: string; name: string; budget: number } | null>(null);
@@ -350,6 +355,44 @@ export default function CampaignsListPage() {
     }
   };
 
+  // ─── Export CSV ──────────────────────────────────
+  const exportToCSV = () => {
+    if (!campaigns || campaigns.length === 0) return;
+    const headers = ["Campanha", "Tipo", "Status", "Orçamento", "Investimento", "Vendas", "Receita", "Lucro", "CPA Real", "ROAS", "ROI", "Impressões", "Cliques", "CTR", "CPC"];
+    const rows = filtered.map((c: any) => {
+      const metrics = getCampaignMetricsForPeriod(c, days);
+      const profit = (c.real_revenue || 0) - metrics.spend;
+      const roi = metrics.spend > 0 ? (profit / metrics.spend) * 100 : 0;
+      const ctr = metrics.impressions > 0 ? (metrics.clicks / metrics.impressions) * 100 : 0;
+      const cpc = metrics.clicks > 0 ? metrics.spend / metrics.clicks : 0;
+      return [
+        c.name,
+        typeLabel(c),
+        c.status,
+        c.daily_budget || 0,
+        metrics.spend,
+        c.real_sales_count || 0,
+        c.real_revenue || 0,
+        profit.toFixed(2),
+        (c.real_sales_count || 0) > 0 ? (metrics.spend / c.real_sales_count).toFixed(2) : 0,
+        (c.real_roas || 0).toFixed(2),
+        roi.toFixed(0),
+        metrics.impressions,
+        metrics.clicks,
+        ctr.toFixed(2),
+        cpc.toFixed(2),
+      ];
+    });
+    const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `campanhas-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // ─── Loading ──────────────────────────────────────
   const isLoading =
     (activeTab === "campanhas" && loadingCampaigns) ||
@@ -384,6 +427,11 @@ export default function CampaignsListPage() {
         <div className="flex items-center gap-2">
           {activeTab === "campanhas" && (
             <>
+              <ColumnSelector visibleColumns={visibleColumns} onColumnsChange={setVisibleColumns} />
+              <Button variant="outline" size="sm" onClick={exportToCSV}>
+                <Download className="h-3.5 w-3.5 mr-1.5" />
+                Exportar
+              </Button>
               <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
                 {syncing ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
                 Sincronizar
@@ -473,15 +521,48 @@ export default function CampaignsListPage() {
                             <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
                           </th>
                           <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Campanha</th>
-                          <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border hidden md:table-cell">Tipo</th>
-                          <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Status</th>
-                          <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden md:table-cell">Budget/dia</th>
-                          <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Investimento</th>
-                          <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden lg:table-cell">Vendas</th>
-                          <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden lg:table-cell">Receita</th>
-                          <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Lucro</th>
-                          <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border hidden xl:table-cell">CPA Real</th>
-                          <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">ROAS</th>
+                          {visibleColumns.includes("type") && (
+                            <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Tipo</th>
+                          )}
+                          {visibleColumns.includes("status") && (
+                            <th className="text-xs font-medium text-t3 text-left pb-3 uppercase tracking-wide border-b border-border">Status</th>
+                          )}
+                          {visibleColumns.includes("budget") && (
+                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Orçamento</th>
+                          )}
+                          {visibleColumns.includes("spend") && (
+                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Investimento</th>
+                          )}
+                          {visibleColumns.includes("sales") && (
+                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Vendas</th>
+                          )}
+                          {visibleColumns.includes("revenue") && (
+                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Receita</th>
+                          )}
+                          {visibleColumns.includes("cpa") && (
+                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">CPA Real</th>
+                          )}
+                          {visibleColumns.includes("lucro") && (
+                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Lucro</th>
+                          )}
+                          {visibleColumns.includes("roas") && (
+                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">ROAS</th>
+                          )}
+                          {visibleColumns.includes("roi") && (
+                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">ROI</th>
+                          )}
+                          {visibleColumns.includes("impressions") && (
+                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Impressões</th>
+                          )}
+                          {visibleColumns.includes("clicks") && (
+                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">Cliques</th>
+                          )}
+                          {visibleColumns.includes("ctr") && (
+                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">CTR</th>
+                          )}
+                          {visibleColumns.includes("cpc") && (
+                            <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border">CPC</th>
+                          )}
                           <th className="text-xs font-medium text-t3 text-right pb-3 uppercase tracking-wide border-b border-border w-10"></th>
                         </tr>
                       </thead>
@@ -489,8 +570,12 @@ export default function CampaignsListPage() {
                         {filtered.map((c: any) => {
                           const metrics = getCampaignMetricsForPeriod(c, days);
                           const profit = (c.real_revenue || 0) - metrics.spend;
+                          const roi = metrics.spend > 0 ? (profit / metrics.spend) * 100 : 0;
+                          const ctr = metrics.impressions > 0 ? (metrics.clicks / metrics.impressions) * 100 : 0;
+                          const cpc = metrics.clicks > 0 ? metrics.spend / metrics.clicks : 0;
+                          const cellCls = "py-2.5 border-b border-border text-sm text-t2 text-right group-hover:bg-s2 transition-colors px-1";
                           return (
-                            <tr key={c.id} className="group">
+                            <tr key={c.id} className={cn("group", selected.has(c.id) && "bg-primary/5")}>
                               <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1" onClick={(e) => e.stopPropagation()}>
                                 <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggleOne(c.id)} />
                               </td>
@@ -500,30 +585,62 @@ export default function CampaignsListPage() {
                               >
                                 {c.name}
                               </td>
-                              <td className="py-2.5 border-b border-border text-sm text-t2 group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">{typeLabel(c)}</td>
-                              <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
-                                <StatusPill variant={c.status === "active" ? "active" : c.status === "paused" ? "paused" : "learning"} />
-                              </td>
-                              <td className="py-2.5 border-b border-border text-sm text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">{formatBRL(c.daily_budget || 0)}</td>
-                              <td className="py-2.5 border-b border-border text-sm text-t2 text-right group-hover:bg-s2 transition-colors px-1">{formatBRL(metrics.spend)}</td>
-                              <td className="py-2.5 border-b border-border text-sm text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden lg:table-cell">{c.real_sales_count || 0}</td>
-                              <td className="py-2.5 border-b border-border text-sm text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden lg:table-cell">{formatBRL(c.real_revenue || 0)}</td>
-                              <td className={cn(
-                                "py-2.5 border-b border-border text-sm font-medium text-right group-hover:bg-s2 transition-colors px-1",
-                                profit >= 0 ? "text-success" : "text-destructive"
-                              )}>
-                                {formatBRL(profit)}
-                              </td>
-                              <td className="py-2.5 border-b border-border text-sm text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden xl:table-cell">
-                                {(c.real_sales_count || 0) > 0 ? formatBRL(metrics.spend / c.real_sales_count) : "—"}
-                              </td>
-                              <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
-                                <RoasValue value={c.real_roas || 0} />
-                              </td>
+                              {visibleColumns.includes("type") && (
+                                <td className="py-2.5 border-b border-border text-sm text-t2 group-hover:bg-s2 transition-colors px-1">{typeLabel(c)}</td>
+                              )}
+                              {visibleColumns.includes("status") && (
+                                <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
+                                  <StatusPill variant={c.status === "active" ? "active" : c.status === "paused" ? "paused" : "learning"} />
+                                </td>
+                              )}
+                              {visibleColumns.includes("budget") && (
+                                <td className={cellCls}>{formatBRL(c.daily_budget || 0)}/dia</td>
+                              )}
+                              {visibleColumns.includes("spend") && (
+                                <td className={cellCls}>{formatBRL(metrics.spend)}</td>
+                              )}
+                              {visibleColumns.includes("sales") && (
+                                <td className={cn(cellCls, "font-medium text-t1")}>{c.real_sales_count || 0}</td>
+                              )}
+                              {visibleColumns.includes("revenue") && (
+                                <td className={cn(cellCls, "font-medium text-success")}>{formatBRL(c.real_revenue || 0)}</td>
+                              )}
+                              {visibleColumns.includes("cpa") && (
+                                <td className={cellCls}>
+                                  {(c.real_sales_count || 0) > 0 ? formatBRL(metrics.spend / c.real_sales_count) : "—"}
+                                </td>
+                              )}
+                              {visibleColumns.includes("lucro") && (
+                                <td className={cn(cellCls, "font-medium", profit >= 0 ? "text-success" : "text-destructive")}>
+                                  {formatBRL(profit)}
+                                </td>
+                              )}
+                              {visibleColumns.includes("roas") && (
+                                <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
+                                  <RoasValue value={c.real_roas || 0} />
+                                </td>
+                              )}
+                              {visibleColumns.includes("roi") && (
+                                <td className={cn(cellCls, "font-medium", roi >= 0 ? "text-success" : "text-destructive")}>
+                                  {roi.toFixed(0)}%
+                                </td>
+                              )}
+                              {visibleColumns.includes("impressions") && (
+                                <td className={cellCls}>{formatCompact(metrics.impressions)}</td>
+                              )}
+                              {visibleColumns.includes("clicks") && (
+                                <td className={cellCls}>{formatNumber(metrics.clicks)}</td>
+                              )}
+                              {visibleColumns.includes("ctr") && (
+                                <td className={cellCls}>{ctr.toFixed(2)}%</td>
+                              )}
+                              {visibleColumns.includes("cpc") && (
+                                <td className={cellCls}>{formatBRL(cpc)}</td>
+                              )}
                               <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
                                       <MoreVertical className="h-3.5 w-3.5" />
                                     </Button>
                                   </DropdownMenuTrigger>
@@ -557,7 +674,7 @@ export default function CampaignsListPage() {
                         })}
                         {filtered.length === 0 && (
                           <tr>
-                            <td colSpan={12} className="py-8 text-center text-t3 text-sm">
+                            <td colSpan={visibleColumns.length + 3} className="py-8 text-center text-t3 text-sm">
                               Nenhuma campanha encontrada
                             </td>
                           </tr>
