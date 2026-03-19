@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useCampaigns, useAdAccounts } from "@/lib/hooks/use-supabase-data";
+import { useCampaigns, useAdAccounts, useSalesMetricsByCampaign } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { usePeriodStore } from "@/lib/hooks/use-period";
 import { formatBRL, formatCompact, formatNumber } from "@/lib/utils";
@@ -18,6 +18,8 @@ export default function GoogleAdsOverviewPage() {
   const { days } = usePeriodStore();
   const { data: campaigns, isLoading } = useCampaigns(days);
   const { data: adAccounts } = useAdAccounts();
+  const { data: salesByC } = useSalesMetricsByCampaign(days);
+  const salesMetrics = salesByC || {};
 
   const googleAccounts = (adAccounts || []).filter((a: any) => a.platform === "google_ads" || !a.platform);
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
@@ -39,14 +41,19 @@ export default function GoogleAdsOverviewPage() {
   }));
 
   const totalCost = campaignMetrics.reduce((s: number, c: any) => s + c._m.spend, 0);
-  const totalRevenue = filteredCampaigns.reduce((s: number, c: any) => s + (c.real_revenue || 0), 0);
   const totalClicks = campaignMetrics.reduce((s: number, c: any) => s + c._m.clicks, 0);
   const totalImpressions = campaignMetrics.reduce((s: number, c: any) => s + c._m.impressions, 0);
   const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
-  const roas = totalCost > 0 ? totalRevenue / totalCost : 0;
   const activeCampaigns = filteredCampaigns.filter((c: any) => c.status === "active").length;
+
+  // Sum real sales metrics (period-filtered, only paid, minus refunds)
+  const totalSales = filteredCampaigns.reduce((s: number, c: any) => s + (salesMetrics[c.id]?.sales || 0), 0);
+  const totalRevenue = filteredCampaigns.reduce((s: number, c: any) => {
+    const sm = salesMetrics[c.id];
+    return s + (sm ? sm.revenue - sm.refundRevenue : 0);
+  }, 0);
+  const roas = totalCost > 0 ? totalRevenue / totalCost : 0;
   const totalProfit = totalRevenue - totalCost;
-  const totalSales = filteredCampaigns.reduce((s: number, c: any) => s + (c.real_sales_count || 0), 0);
   const realCpa = totalSales > 0 ? totalCost / totalSales : 0;
 
   if (isLoading) {
@@ -153,7 +160,10 @@ export default function GoogleAdsOverviewPage() {
               <tbody>
                 {campaignMetrics.slice(0, 8).map((c: any) => {
                   const m = c._m;
-                  const profit = (c.real_revenue || 0) - m.spend;
+                  const sm = salesMetrics[c.id] || { sales: 0, revenue: 0, refunds: 0, refundRevenue: 0 };
+                  const netRevenue = sm.revenue - sm.refundRevenue;
+                  const profit = netRevenue - m.spend;
+                  const campaignRoas = m.spend > 0 ? netRevenue / m.spend : 0;
                   return (
                     <tr key={c.id} className="group cursor-pointer">
                       <td className="py-2.5 border-b border-border text-base font-medium text-t1 group-hover:bg-s2 transition-colors px-1 max-w-[200px] truncate">
@@ -178,19 +188,19 @@ export default function GoogleAdsOverviewPage() {
                         {formatBRL(m.spend)}
                       </td>
                       <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">
-                        {c.real_sales_count || 0}
+                        {sm.sales}{sm.refunds > 0 && <span className="text-destructive text-xs ml-1">(-{sm.refunds})</span>}
                       </td>
                       <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden md:table-cell">
-                        {formatBRL(c.real_revenue || 0)}
+                        {formatBRL(netRevenue)}
                       </td>
                       <td className={`py-2.5 border-b border-border text-base font-medium text-right group-hover:bg-s2 transition-colors px-1 ${profit >= 0 ? "text-success" : "text-destructive"}`}>
                         {formatBRL(profit)}
                       </td>
                       <td className="py-2.5 border-b border-border text-base text-t2 text-right group-hover:bg-s2 transition-colors px-1 hidden lg:table-cell">
-                        {(c.real_sales_count || 0) > 0 ? formatBRL(m.spend / c.real_sales_count) : "—"}
+                        {sm.sales > 0 ? formatBRL(m.spend / sm.sales) : "—"}
                       </td>
                       <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
-                        <RoasValue value={c.real_roas || 0} />
+                        <RoasValue value={campaignRoas} />
                       </td>
                     </tr>
                   );

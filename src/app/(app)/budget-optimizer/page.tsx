@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useCampaigns } from "@/lib/hooks/use-supabase-data";
+import { useCampaigns, useSalesMetricsByCampaign } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
+import { usePeriodStore } from "@/lib/hooks/use-period";
 import { optimizeBudget } from "@/lib/services/edge-functions";
 import { formatBRL } from "@/lib/utils";
 import { MetricCard } from "@/components/shared/metric-card";
@@ -17,7 +18,10 @@ import { toast } from "sonner";
 
 export default function BudgetOptimizerPage() {
   const orgId = useOrgId();
-  const { data: campaigns, isLoading } = useCampaigns();
+  const { days } = usePeriodStore();
+  const { data: campaigns, isLoading } = useCampaigns(days);
+  const { data: salesByC } = useSalesMetricsByCampaign(days);
+  const salesMetrics = salesByC || {};
   const [optimizing, setOptimizing] = useState(false);
   const [suggestion, setSuggestion] = useState<any>(null);
 
@@ -42,7 +46,10 @@ export default function BudgetOptimizerPage() {
   const activeCampaigns = campaigns?.filter((c: any) => c.status === "active") || [];
   const totalBudget = activeCampaigns.reduce((sum: number, c: any) => sum + (c.daily_budget || 0), 0);
   const totalSpent = activeCampaigns.reduce((sum: number, c: any) => sum + (c.cost || 0), 0);
-  const totalRevenue = activeCampaigns.reduce((sum: number, c: any) => sum + (c.real_revenue || 0), 0);
+  const totalRevenue = activeCampaigns.reduce((sum: number, c: any) => {
+    const sm = salesMetrics[c.id];
+    return sum + (sm ? sm.revenue - sm.refundRevenue : 0);
+  }, 0);
   const projectedSavings = suggestion?.savings ?? totalBudget * 0.12;
 
   const budgetColors = ["bg-primary", "bg-success", "bg-warning", "bg-info", "bg-purple-500", "bg-amber-500"];
@@ -123,7 +130,9 @@ export default function BudgetOptimizerPage() {
             <div>
               {activeCampaigns.map((campaign: any, idx: number) => {
                 const pct = totalBudget > 0 ? ((campaign.daily_budget || 0) / totalBudget) * 100 : 0;
-                const roas = campaign.real_roas || 0;
+                const sm = salesMetrics[campaign.id] || { sales: 0, revenue: 0, refunds: 0, refundRevenue: 0 };
+                const netRev = sm.revenue - sm.refundRevenue;
+                const roas = (campaign.cost || 0) > 0 ? netRev / campaign.cost : 0;
                 const barColor = roas >= 2 ? "bg-success" : roas >= 1 ? "bg-warning" : "bg-destructive";
                 return (
                   <BudgetBar

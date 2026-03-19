@@ -1,7 +1,8 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useCampaignById } from "@/lib/hooks/use-supabase-data";
+import { useCampaignById, useSalesMetricsByCampaign } from "@/lib/hooks/use-supabase-data";
+import { usePeriodStore } from "@/lib/hooks/use-period";
 import { formatBRL, formatNumber, formatCompact } from "@/lib/utils";
 import { KPICard } from "@/components/shared/kpi-card";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -22,6 +23,8 @@ export default function CampaignDetailPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: campaign, isLoading } = useCampaignById(id);
+  const { days } = usePeriodStore();
+  const { data: salesByC } = useSalesMetricsByCampaign(days);
   const [toggling, setToggling] = useState(false);
 
   const toggleStatus = async () => {
@@ -90,10 +93,20 @@ export default function CampaignDetailPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KPICard title="Orçamento/dia" value={formatBRL(campaign.daily_budget || 0)} delay={0} icon={<DollarSign className="h-4 w-4" />} />
-        <KPICard title="Cliques" value={formatCompact(campaign.clicks || 0)} delay={1} icon={<MousePointerClick className="h-4 w-4" />} />
-        <KPICard title="ROAS Real" value={`${(campaign.real_roas || 0).toFixed(2)}x`} delay={2} icon={<TrendingUp className="h-4 w-4" />} />
-        <KPICard title="Vendas Reais" value={String(campaign.real_sales_count || 0)} delay={3} icon={<Target className="h-4 w-4" />} />
+        {(() => {
+          const sm = (salesByC || {})[campaign.id] || { sales: 0, revenue: 0, refunds: 0, refundRevenue: 0 };
+          const netRevenue = sm.revenue - sm.refundRevenue;
+          const cost = campaign.cost || 0;
+          const periodRoas = cost > 0 ? netRevenue / cost : 0;
+          return (
+            <>
+              <KPICard title="Orçamento/dia" value={formatBRL(campaign.daily_budget || 0)} delay={0} icon={<DollarSign className="h-4 w-4" />} />
+              <KPICard title="Cliques" value={formatCompact(campaign.clicks || 0)} delay={1} icon={<MousePointerClick className="h-4 w-4" />} />
+              <KPICard title="ROAS Real" value={`${periodRoas.toFixed(2)}x`} delay={2} icon={<TrendingUp className="h-4 w-4" />} />
+              <KPICard title="Vendas Reais" value={`${sm.sales}${sm.refunds > 0 ? ` (-${sm.refunds})` : ""}`} delay={3} icon={<Target className="h-4 w-4" />} />
+            </>
+          );
+        })()}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -116,16 +129,24 @@ export default function CampaignDetailPage() {
         </Card>
 
         <Card className="border-primary/20">
-          <CardHeader><CardTitle className="text-base font-heading text-primary">Métricas Reais (Utmify)</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base font-heading text-primary">Métricas Reais (Período)</CardTitle></CardHeader>
           <CardContent className="space-y-2">
-            {[
-              ["Vendas Reais", String(campaign.real_sales_count || 0)],
-              ["Receita Real", formatBRL(campaign.real_revenue || 0)],
-              ["ROAS Real", `${(campaign.real_roas || 0).toFixed(2)}x`],
-              ["CPA Real", formatBRL(campaign.real_cpa || 0)],
-            ].map(([label, value]) => (
-              <div key={label} className="flex justify-between"><span className="text-sm text-t3">{label}</span><span className="text-sm font-mono font-semibold">{value}</span></div>
-            ))}
+            {(() => {
+              const sm = (salesByC || {})[campaign.id] || { sales: 0, revenue: 0, refunds: 0, refundRevenue: 0 };
+              const netRevenue = sm.revenue - sm.refundRevenue;
+              const cost = campaign.cost || 0;
+              const periodRoas = cost > 0 ? netRevenue / cost : 0;
+              const periodCpa = sm.sales > 0 ? cost / sm.sales : 0;
+              return [
+                ["Vendas Pagas", String(sm.sales)],
+                ["Reembolsos", String(sm.refunds)],
+                ["Receita Líquida", formatBRL(netRevenue)],
+                ["ROAS Real", `${periodRoas.toFixed(2)}x`],
+                ["CPA Real", sm.sales > 0 ? formatBRL(periodCpa) : "—"],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between"><span className="text-sm text-t3">{label}</span><span className="text-sm font-mono font-semibold">{value}</span></div>
+              ));
+            })()}
           </CardContent>
         </Card>
       </div>

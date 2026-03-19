@@ -1,7 +1,8 @@
 "use client";
 
 import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { useDashboardMetrics, useTopCampaigns, useInsights, useContacts } from "@/lib/hooks/use-supabase-data";
+import { useDashboardMetrics, useTopCampaigns, useInsights, useContacts, useSalesMetricsByCampaign } from "@/lib/hooks/use-supabase-data";
+import { getCampaignMetricsForPeriod } from "@/lib/services/supabase-queries";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { usePeriodStore } from "@/lib/hooks/use-period";
 import { createClient } from "@/lib/supabase/client";
@@ -72,6 +73,8 @@ export default function DashboardPage() {
   const { data: metrics, isLoading } = useDashboardMetrics(days);
   const { data: topCampaigns } = useTopCampaigns(5, days);
   const { data: salesData } = useSalesFromCheckout(days);
+  const { data: salesByC } = useSalesMetricsByCampaign(days);
+  const salesMetrics = salesByC || {};
   const { data: insights } = useInsights();
   const { data: aiDecisions } = useAIDecisions();
   const { data: contacts } = useContacts();
@@ -249,19 +252,25 @@ export default function DashboardPage() {
               </thead>
               <tbody>
                 {topCampaigns && topCampaigns.length > 0 ? (
-                  topCampaigns.slice(0, 5).map((c: any) => (
-                    <tr key={c.id} className="group">
-                      <td className="py-2.5 border-b border-border text-base font-medium text-t1 group-hover:bg-s2 transition-colors px-1">
-                        {c.name?.length > 22 ? c.name.slice(0, 22) + "…" : c.name}
-                      </td>
-                      <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
-                        <StatusPill variant={c.status === "active" ? "active" : c.status === "paused" ? "paused" : "learning"} />
-                      </td>
-                      <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
-                        <RoasValue value={c.real_roas || 0} />
-                      </td>
-                    </tr>
-                  ))
+                  topCampaigns.slice(0, 5).map((c: any) => {
+                    const m = getCampaignMetricsForPeriod(c, days);
+                    const sm = salesMetrics[c.id] || { sales: 0, revenue: 0, refunds: 0, refundRevenue: 0 };
+                    const netRevenue = sm.revenue - sm.refundRevenue;
+                    const campaignRoas = m.spend > 0 ? netRevenue / m.spend : 0;
+                    return (
+                      <tr key={c.id} className="group">
+                        <td className="py-2.5 border-b border-border text-base font-medium text-t1 group-hover:bg-s2 transition-colors px-1">
+                          {c.name?.length > 22 ? c.name.slice(0, 22) + "…" : c.name}
+                        </td>
+                        <td className="py-2.5 border-b border-border group-hover:bg-s2 transition-colors px-1">
+                          <StatusPill variant={c.status === "active" ? "active" : c.status === "paused" ? "paused" : "learning"} />
+                        </td>
+                        <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
+                          <RoasValue value={campaignRoas} />
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan={3} className="py-8 text-center text-t3 text-sm">Nenhuma campanha</td>
