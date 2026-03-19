@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCampaigns, useAdAccounts } from "@/lib/hooks/use-supabase-data";
+import { useCampaigns, useAdAccounts, useSalesMetricsByCampaign } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
 import { usePeriodStore } from "@/lib/hooks/use-period";
 import { getGoogleAdsAuthUrl } from "@/lib/services/edge-functions";
@@ -153,6 +153,10 @@ export default function CampaignsListPage() {
 
   // Campaigns data
   const { data: campaigns, isLoading: loadingCampaigns, refetch: refetchCampaigns } = useCampaigns(days);
+
+  // Sales metrics by campaign (period-filtered, only paid sales)
+  const { data: salesByC } = useSalesMetricsByCampaign(days);
+  const salesMetrics = salesByC || {};
 
   // Ad Groups & Ads data
   const { data: adGroups, isLoading: loadingAdGroups } = useAdGroups();
@@ -358,10 +362,13 @@ export default function CampaignsListPage() {
   // ─── Export CSV ──────────────────────────────────
   const exportToCSV = () => {
     if (!campaigns || campaigns.length === 0) return;
-    const headers = ["Campanha", "Tipo", "Status", "Orçamento", "Investimento", "Vendas", "Receita", "Lucro", "CPA Real", "ROAS", "ROI", "Impressões", "Cliques", "CTR", "CPC"];
+    const headers = ["Campanha", "Tipo", "Status", "Orçamento", "Investimento", "Vendas", "Reembolsos", "Receita Líquida", "Lucro", "CPA Real", "ROAS", "ROI", "Impressões", "Cliques", "CTR", "CPC"];
     const rows = filtered.map((c: any) => {
       const metrics = getCampaignMetricsForPeriod(c, days);
-      const profit = (c.real_revenue || 0) - metrics.spend;
+      const sm = salesMetrics[c.id] || { sales: 0, revenue: 0, refunds: 0, refundRevenue: 0 };
+      const netRevenue = sm.revenue - sm.refundRevenue;
+      const profit = netRevenue - metrics.spend;
+      const roas = metrics.spend > 0 ? netRevenue / metrics.spend : 0;
       const roi = metrics.spend > 0 ? (profit / metrics.spend) * 100 : 0;
       const ctr = metrics.impressions > 0 ? (metrics.clicks / metrics.impressions) * 100 : 0;
       const cpc = metrics.clicks > 0 ? metrics.spend / metrics.clicks : 0;
@@ -371,11 +378,12 @@ export default function CampaignsListPage() {
         c.status,
         c.daily_budget || 0,
         metrics.spend,
-        c.real_sales_count || 0,
-        c.real_revenue || 0,
+        sm.sales,
+        sm.refunds,
+        netRevenue.toFixed(2),
         profit.toFixed(2),
-        (c.real_sales_count || 0) > 0 ? (metrics.spend / c.real_sales_count).toFixed(2) : 0,
-        (c.real_roas || 0).toFixed(2),
+        sm.sales > 0 ? (metrics.spend / sm.sales).toFixed(2) : 0,
+        roas.toFixed(2),
         roi.toFixed(0),
         metrics.impressions,
         metrics.clicks,
@@ -569,7 +577,10 @@ export default function CampaignsListPage() {
                       <tbody>
                         {filtered.map((c: any) => {
                           const metrics = getCampaignMetricsForPeriod(c, days);
-                          const profit = (c.real_revenue || 0) - metrics.spend;
+                          const sm = salesMetrics[c.id] || { sales: 0, revenue: 0, refunds: 0, refundRevenue: 0 };
+                          const netRevenue = sm.revenue - sm.refundRevenue;
+                          const profit = netRevenue - metrics.spend;
+                          const roas = metrics.spend > 0 ? netRevenue / metrics.spend : 0;
                           const roi = metrics.spend > 0 ? (profit / metrics.spend) * 100 : 0;
                           const ctr = metrics.impressions > 0 ? (metrics.clicks / metrics.impressions) * 100 : 0;
                           const cpc = metrics.clicks > 0 ? metrics.spend / metrics.clicks : 0;
@@ -600,14 +611,17 @@ export default function CampaignsListPage() {
                                 <td className={cellCls}>{formatBRL(metrics.spend)}</td>
                               )}
                               {visibleColumns.includes("sales") && (
-                                <td className={cn(cellCls, "font-medium text-t1")}>{c.real_sales_count || 0}</td>
+                                <td className={cn(cellCls, "font-medium text-t1")}>
+                                  {sm.sales}
+                                  {sm.refunds > 0 && <span className="text-destructive text-xs ml-1">(-{sm.refunds})</span>}
+                                </td>
                               )}
                               {visibleColumns.includes("revenue") && (
-                                <td className={cn(cellCls, "font-medium text-success")}>{formatBRL(c.real_revenue || 0)}</td>
+                                <td className={cn(cellCls, "font-medium text-success")}>{formatBRL(netRevenue)}</td>
                               )}
                               {visibleColumns.includes("cpa") && (
                                 <td className={cellCls}>
-                                  {(c.real_sales_count || 0) > 0 ? formatBRL(metrics.spend / c.real_sales_count) : "—"}
+                                  {sm.sales > 0 ? formatBRL(metrics.spend / sm.sales) : "—"}
                                 </td>
                               )}
                               {visibleColumns.includes("lucro") && (
@@ -617,7 +631,7 @@ export default function CampaignsListPage() {
                               )}
                               {visibleColumns.includes("roas") && (
                                 <td className="py-2.5 border-b border-border text-right group-hover:bg-s2 transition-colors px-1">
-                                  <RoasValue value={c.real_roas || 0} />
+                                  <RoasValue value={roas} />
                                 </td>
                               )}
                               {visibleColumns.includes("roi") && (

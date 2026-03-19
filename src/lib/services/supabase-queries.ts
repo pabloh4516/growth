@@ -182,6 +182,55 @@ export async function fetchUtmifySales(orgId: string, filters?: UtmifySalesFilte
   return data;
 }
 
+/**
+ * Fetch real sales metrics per campaign for a given period.
+ * Groups utmify_sales by matched_campaign_id, filtering by date and status.
+ * Paid sales count as positive revenue; refunded/chargedback subtract.
+ */
+export async function fetchSalesMetricsByCampaign(
+  orgId: string,
+  days: number
+): Promise<Record<string, { sales: number; revenue: number; refunds: number; refundRevenue: number }>> {
+  const dateFrom = new Date();
+  if (days <= 1) {
+    dateFrom.setHours(0, 0, 0, 0);
+  } else {
+    dateFrom.setDate(dateFrom.getDate() - days);
+  }
+
+  const { data, error } = await supabase
+    .from("utmify_sales")
+    .select("matched_campaign_id, status, revenue")
+    .eq("organization_id", orgId)
+    .not("matched_campaign_id", "is", null)
+    .gte("sale_date", dateFrom.toISOString());
+
+  if (error) throw error;
+
+  const result: Record<string, { sales: number; revenue: number; refunds: number; refundRevenue: number }> = {};
+
+  for (const row of data || []) {
+    const cId = row.matched_campaign_id;
+    if (!cId) continue;
+    if (!result[cId]) {
+      result[cId] = { sales: 0, revenue: 0, refunds: 0, refundRevenue: 0 };
+    }
+
+    const rev = Number(row.revenue) || 0;
+
+    if (row.status === "paid") {
+      result[cId].sales += 1;
+      result[cId].revenue += rev;
+    } else if (row.status === "refunded" || row.status === "chargedback") {
+      result[cId].refunds += 1;
+      result[cId].refundRevenue += rev;
+    }
+    // waiting_payment, refused, canceled → ignorados
+  }
+
+  return result;
+}
+
 // ─── CRM ───────────────────────────────────────────────
 export async function fetchContacts(orgId: string) {
   const { data, error } = await supabase

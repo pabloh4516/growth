@@ -264,6 +264,17 @@ export function useAdAccounts() {
   });
 }
 
+// ─── Sales Metrics by Campaign (period-filtered) ──────
+export function useSalesMetricsByCampaign(days: number) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: ["sales-metrics-by-campaign", orgId, days],
+    queryFn: () => queries.fetchSalesMetricsByCampaign(orgId!, days),
+    enabled: !!orgId,
+    refetchInterval: REFRESH_INTERVAL,
+  });
+}
+
 // ─── Reports ──────────────────────────────────────────
 export function useReports() {
   const orgId = useOrgId();
