@@ -768,63 +768,53 @@ export default function CampaignsListPage() {
                           </tr>
                         )}
                       </tbody>
+                      {/* ─── Totals Row (sticky footer like TrackVio) ─── */}
+                      {filtered.length > 0 && (
+                        <tfoot className="bg-s2 border-t-2 border-primary/30 sticky bottom-0">
+                          {(() => {
+                            const t = filtered.reduce((acc: any, c: any) => ({
+                              spend: acc.spend + c._m.spend,
+                              sales: acc.sales + c._sm.sales,
+                              refunds: acc.refunds + c._sm.refunds,
+                              revenue: acc.revenue + c._netRevenue,
+                              profit: acc.profit + c._profit,
+                              impressions: acc.impressions + c._m.impressions,
+                              clicks: acc.clicks + c._m.clicks,
+                            }), { spend: 0, sales: 0, refunds: 0, revenue: 0, profit: 0, impressions: 0, clicks: 0 });
+                            const tRoas = t.spend > 0 ? t.revenue / t.spend : 0;
+                            const tCpa = t.sales > 0 ? t.spend / t.sales : 0;
+                            const tRoi = t.spend > 0 ? (t.profit / t.spend) * 100 : 0;
+                            const tCtr = t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0;
+                            const tCpc = t.clicks > 0 ? t.spend / t.clicks : 0;
+                            const fCls = "py-3 px-1 text-sm font-semibold text-right text-t1";
+                            return (
+                              <tr>
+                                <td className="py-3 px-1"><span className="text-xs text-t4">N/A</span></td>
+                                <td className="py-3 px-1 text-sm font-semibold text-t1">{filtered.length} CAMPANHAS</td>
+                                {visibleColumns.includes("type") && <td className="py-3 px-1"><span className="text-xs text-t4">N/A</span></td>}
+                                {visibleColumns.includes("status") && <td className="py-3 px-1"><span className="text-xs text-t4">N/A</span></td>}
+                                {visibleColumns.includes("budget") && <td className={fCls}>{formatBRL(filtered.reduce((s: number, c: any) => s + (c.daily_budget || 0), 0))}</td>}
+                                {visibleColumns.includes("spend") && <td className={fCls}>{formatBRL(t.spend)}</td>}
+                                {visibleColumns.includes("sales") && <td className={fCls}>{t.sales}</td>}
+                                {visibleColumns.includes("revenue") && <td className={cn(fCls, "text-success")}>{formatBRL(t.revenue)}</td>}
+                                {visibleColumns.includes("cpa") && <td className={fCls}>{t.sales > 0 ? formatBRL(tCpa) : "N/A"}</td>}
+                                {visibleColumns.includes("lucro") && <td className={cn(fCls, t.profit >= 0 ? "text-success" : "text-destructive")}>{formatBRL(t.profit)}</td>}
+                                {visibleColumns.includes("roas") && <td className="py-3 px-1 text-right"><RoasValue value={tRoas} /></td>}
+                                {visibleColumns.includes("roi") && <td className={cn(fCls, tRoi >= 0 ? "text-success" : "text-destructive")}>{tRoi.toFixed(0)}%</td>}
+                                {visibleColumns.includes("impressions") && <td className={fCls}>{formatCompact(t.impressions)}</td>}
+                                {visibleColumns.includes("clicks") && <td className={fCls}>{formatNumber(t.clicks)}</td>}
+                                {visibleColumns.includes("ctr") && <td className={fCls}>{tCtr.toFixed(2)}%</td>}
+                                {visibleColumns.includes("cpc") && <td className={fCls}>{formatBRL(tCpc)}</td>}
+                                <td className="py-3 px-1"></td>
+                              </tr>
+                            );
+                          })()}
+                        </tfoot>
+                      )}
                     </table>
                   </div>
                 </CardContent>
               </Card>
-
-              {/* ─── Totals Summary ─── */}
-              {filtered.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {(() => {
-                    const totals = filtered.reduce((acc: any, c: any) => ({
-                      spend: acc.spend + c._m.spend,
-                      sales: acc.sales + c._sm.sales,
-                      refunds: acc.refunds + c._sm.refunds,
-                      revenue: acc.revenue + c._netRevenue,
-                      profit: acc.profit + c._profit,
-                      impressions: acc.impressions + c._m.impressions,
-                      clicks: acc.clicks + c._m.clicks,
-                    }), { spend: 0, sales: 0, refunds: 0, revenue: 0, profit: 0, impressions: 0, clicks: 0 });
-                    const tRoas = totals.spend > 0 ? totals.revenue / totals.spend : 0;
-                    const tCpa = totals.sales > 0 ? totals.spend / totals.sales : 0;
-                    const tCtr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0;
-                    return (
-                      <>
-                        <div className="bg-s1 border border-border rounded-lg p-3">
-                          <div className="text-xs text-t4 uppercase tracking-wide">Investimento</div>
-                          <div className="text-lg font-semibold text-t1 mt-1">{formatBRL(totals.spend)}</div>
-                        </div>
-                        <div className="bg-s1 border border-border rounded-lg p-3">
-                          <div className="text-xs text-t4 uppercase tracking-wide">Vendas</div>
-                          <div className="text-lg font-semibold text-t1 mt-1">
-                            {totals.sales}
-                            {totals.refunds > 0 && <span className="text-destructive text-sm ml-1">(-{totals.refunds})</span>}
-                          </div>
-                        </div>
-                        <div className="bg-s1 border border-border rounded-lg p-3">
-                          <div className="text-xs text-t4 uppercase tracking-wide">Receita</div>
-                          <div className="text-lg font-semibold text-success mt-1">{formatBRL(totals.revenue)}</div>
-                        </div>
-                        <div className="bg-s1 border border-border rounded-lg p-3">
-                          <div className="text-xs text-t4 uppercase tracking-wide">Lucro</div>
-                          <div className={cn("text-lg font-semibold mt-1", totals.profit >= 0 ? "text-success" : "text-destructive")}>
-                            {formatBRL(totals.profit)}
-                          </div>
-                        </div>
-                        <div className="bg-s1 border border-border rounded-lg p-3">
-                          <div className="text-xs text-t4 uppercase tracking-wide">ROAS</div>
-                          <div className="mt-1"><RoasValue value={tRoas} /></div>
-                        </div>
-                        <div className="bg-s1 border border-border rounded-lg p-3">
-                          <div className="text-xs text-t4 uppercase tracking-wide">CPA Real</div>
-                          <div className="text-lg font-semibold text-t1 mt-1">{totals.sales > 0 ? formatBRL(tCpa) : "—"}</div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
             </>
           )}
 
