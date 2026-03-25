@@ -2,12 +2,13 @@
 
 import { useState, useMemo } from "react";
 import { useSearchTerms, useCampaigns, useAdAccounts } from "@/lib/hooks/use-supabase-data";
+import { addNegativeKeyword } from "@/lib/services/edge-functions";
 import { formatBRL, formatNumber, formatCompact } from "@/lib/utils";
 import { KPICard } from "@/components/shared/kpi-card";
 import { DataTable } from "@/components/shared/data-table";
-import { StatusPill } from "@/components/shared/status-pill";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -15,8 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Search, MousePointerClick, DollarSign, Target, TrendingUp, TrendingDown, AlertTriangle, Sparkles } from "lucide-react";
+import { Loader2, Search, MousePointerClick, DollarSign, Target, TrendingUp, AlertTriangle, Sparkles, Ban, Plus } from "lucide-react";
 import { type ColumnDef } from "@tanstack/react-table";
+import { toast } from "sonner";
 
 // ─── Helpers ─────────────────────────────────────────
 
@@ -37,115 +39,11 @@ function classifyTerm(term: string) {
 
 function getIntentBadge(term: string) {
   const cls = classifyTerm(term);
-  if (cls.highIntent) return { label: "Alta intencao", color: "bg-success/15 text-success border-success/30" };
+  if (cls.highIntent) return { label: "Alta intenção", color: "bg-success/15 text-success border-success/30" };
   if (cls.brand) return { label: "Marca", color: "bg-blue-500/15 text-blue-500 border-blue-500/30" };
   if (cls.longTail) return { label: "Long-tail", color: "bg-purple-500/15 text-purple-500 border-purple-500/30" };
   return null;
 }
-
-// ─── Columns ─────────────────────────────────────────
-
-const columns: ColumnDef<any, any>[] = [
-  {
-    accessorKey: "term",
-    header: "Termo de Busca",
-    cell: ({ row }) => {
-      const badge = getIntentBadge(row.original.term || "");
-      return (
-        <div className="max-w-[320px]">
-          <span className="font-medium text-t1">{row.original.term}</span>
-          {row.original.campaign_name && row.original.campaign_name !== "—" && (
-            <p className="text-[11px] text-muted-foreground truncate mt-0.5">{row.original.campaign_name}</p>
-          )}
-          {badge && (
-            <Badge variant="outline" className={`mt-1 text-[10px] ${badge.color}`}>
-              {badge.label}
-            </Badge>
-          )}
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "impressions",
-    header: "Impressoes",
-    cell: ({ row }) => <span className="font-mono text-sm text-t2">{formatCompact(row.original.impressions || 0)}</span>,
-    meta: { className: "text-right hidden md:table-cell" },
-  },
-  {
-    accessorKey: "clicks",
-    header: "Cliques",
-    cell: ({ row }) => <span className="font-mono text-sm text-t2">{formatNumber(row.original.clicks || 0)}</span>,
-    meta: { className: "text-right" },
-  },
-  {
-    accessorKey: "ctr",
-    header: "CTR",
-    cell: ({ row }) => {
-      const ctr = row.original.ctr || 0;
-      return <span className="font-mono text-sm text-t2">{ctr.toFixed(2)}%</span>;
-    },
-    meta: { className: "text-right hidden lg:table-cell" },
-  },
-  {
-    accessorKey: "cost",
-    header: "Custo",
-    cell: ({ row }) => <span className="font-mono text-sm text-t2">{formatBRL(row.original.cost || 0)}</span>,
-    meta: { className: "text-right" },
-  },
-  {
-    accessorKey: "conversions",
-    header: "Conv.",
-    cell: ({ row }) => {
-      const conv = row.original.conversions || 0;
-      return (
-        <span className={`font-mono text-sm font-semibold ${conv > 0 ? "text-success" : "text-muted-foreground"}`}>
-          {conv}
-        </span>
-      );
-    },
-    meta: { className: "text-right" },
-  },
-  {
-    accessorKey: "cpa",
-    header: "CPA",
-    cell: ({ row }) => {
-      const conv = row.original.conversions || 0;
-      const cost = row.original.cost || 0;
-      if (conv === 0) return <span className="text-muted-foreground">—</span>;
-      return <span className="font-mono text-sm text-t2">{formatBRL(cost / conv)}</span>;
-    },
-    meta: { className: "text-right hidden xl:table-cell" },
-    sortingFn: (rowA, rowB) => {
-      const cpaA = (rowA.original as any).conversions > 0 ? (rowA.original as any).cost / (rowA.original as any).conversions : Infinity;
-      const cpaB = (rowB.original as any).conversions > 0 ? (rowB.original as any).cost / (rowB.original as any).conversions : Infinity;
-      return cpaA - cpaB;
-    },
-  },
-  {
-    accessorKey: "suggested_action",
-    header: "Acao",
-    cell: ({ row }) => {
-      const action = row.original.suggested_action;
-      if (!action) return <span className="text-muted-foreground text-xs">—</span>;
-      if (action === "promote") {
-        return (
-          <Badge variant="outline" className="bg-success/10 text-success border-success/30 text-[10px]">
-            Promover
-          </Badge>
-        );
-      }
-      if (action === "negate") {
-        return (
-          <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 text-[10px]">
-            Negativar
-          </Badge>
-        );
-      }
-      return <StatusPill variant="paused" label={action} />;
-    },
-  },
-];
 
 // ─── Page ─────────────────────────────────────────
 
@@ -159,11 +57,12 @@ export default function SearchTermsPage() {
   const [accountFilter, setAccountFilter] = useState("all");
   const [campaignFilter, setCampaignFilter] = useState("all");
   const [view, setView] = useState<ViewTab>("all");
+  const [actioning, setActioning] = useState<string | null>(null);
 
-  // Campaign name map
+  // Campaign map (id → { name, external_id, ad_account_id })
   const campaignMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    (campaigns || []).forEach((c: any) => { map[c.id] = c.name; });
+    const map: Record<string, any> = {};
+    (campaigns || []).forEach((c: any) => { map[c.id] = c; });
     return map;
   }, [campaigns]);
 
@@ -174,6 +73,16 @@ export default function SearchTermsPage() {
     return campaigns.filter((c: any) => c.ad_account_id === accountFilter);
   }, [campaigns, accountFilter]);
 
+  // Determine if a term should be negated (cost > 10 and 0 conversions)
+  const shouldNegate = (t: any) => (t.cost || 0) > 10 && (t.conversions || 0) === 0;
+
+  // Determine if a term should be promoted (has conversions with decent CPA)
+  const shouldPromote = (t: any) => {
+    const conv = t.conversions || 0;
+    const cost = t.cost || 0;
+    return conv > 0 && (cost / conv) < 100;
+  };
+
   // Filtered & enriched terms
   const filtered = useMemo(() => {
     if (!terms) return [];
@@ -183,8 +92,8 @@ export default function SearchTermsPage() {
         if (campaignFilter !== "all" && t.campaign_id !== campaignFilter) return false;
 
         if (view === "converters") return (t.conversions || 0) > 0;
-        if (view === "promote") return t.suggested_action === "promote";
-        if (view === "negate") return t.suggested_action === "negate";
+        if (view === "promote") return shouldPromote(t) || t.suggested_action === "promote";
+        if (view === "negate") return shouldNegate(t) || t.suggested_action === "negate";
         if (view === "high-intent") return classifyTerm(t.term || "").highIntent;
         if (view === "long-tail") return classifyTerm(t.term || "").longTail;
         if (view === "wasted") return (t.cost || 0) > 10 && (t.conversions || 0) === 0;
@@ -193,12 +102,13 @@ export default function SearchTermsPage() {
       })
       .map((t: any) => ({
         ...t,
-        campaign_name: campaignMap[t.campaign_id] || "—",
+        campaign_name: campaignMap[t.campaign_id]?.name || "—",
       }));
   }, [terms, accountFilter, campaignFilter, view, campaignMap]);
 
   // KPIs
   const kpis = useMemo(() => {
+    const all = terms || [];
     const total = filtered.length;
     const impressions = filtered.reduce((s: number, t: any) => s + (t.impressions || 0), 0);
     const clicks = filtered.reduce((s: number, t: any) => s + (t.clicks || 0), 0);
@@ -207,14 +117,14 @@ export default function SearchTermsPage() {
     const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
     const cpa = conversions > 0 ? cost / conversions : 0;
     const withConv = filtered.filter((t: any) => (t.conversions || 0) > 0).length;
-    const toPromote = filtered.filter((t: any) => t.suggested_action === "promote").length;
-    const toNegate = filtered.filter((t: any) => t.suggested_action === "negate").length;
-    const wasted = filtered
-      .filter((t: any) => (t.cost || 0) > 10 && (t.conversions || 0) === 0)
+    const toPromote = all.filter((t: any) => shouldPromote(t) || t.suggested_action === "promote").length;
+    const toNegate = all.filter((t: any) => shouldNegate(t) || t.suggested_action === "negate").length;
+    const wasted = all
+      .filter((t: any) => shouldNegate(t))
       .reduce((s: number, t: any) => s + (t.cost || 0), 0);
 
     return { total, impressions, clicks, cost, conversions, ctr, cpa, withConv, toPromote, toNegate, wasted };
-  }, [filtered]);
+  }, [filtered, terms]);
 
   // Top converting terms for highlight
   const topConverters = useMemo(() => {
@@ -224,6 +134,140 @@ export default function SearchTermsPage() {
       .sort((a: any, b: any) => (b.conversions || 0) - (a.conversions || 0))
       .slice(0, 5);
   }, [terms]);
+
+  // ─── Actions ─────────────────────────────────────────
+
+  const handleNegate = async (term: any) => {
+    const camp = campaignMap[term.campaign_id];
+    if (!camp?.external_id || !camp?.ad_account_id) {
+      toast.error("Campanha não encontrada", { description: "Não foi possível identificar a campanha desse termo." });
+      return;
+    }
+    setActioning(term.id);
+    try {
+      await addNegativeKeyword(camp.ad_account_id, camp.external_id, term.term, "EXACT");
+      toast.success("Palavra negativada!", { description: `"${term.term}" adicionada como negativa na campanha.` });
+    } catch (err: any) {
+      toast.error("Erro ao negativar", { description: err?.message || "Tente novamente." });
+    } finally {
+      setActioning(null);
+    }
+  };
+
+  // ─── Columns ─────────────────────────────────────────
+
+  const columns: ColumnDef<any, any>[] = [
+    {
+      accessorKey: "term",
+      header: "Termo de Busca",
+      cell: ({ row }) => {
+        const badge = getIntentBadge(row.original.term || "");
+        return (
+          <div className="max-w-[320px]">
+            <span className="font-medium text-t1">{row.original.term}</span>
+            {row.original.campaign_name && row.original.campaign_name !== "—" && (
+              <p className="text-[11px] text-muted-foreground truncate mt-0.5">{row.original.campaign_name}</p>
+            )}
+            {badge && (
+              <Badge variant="outline" className={`mt-1 text-[10px] ${badge.color}`}>
+                {badge.label}
+              </Badge>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "impressions",
+      header: "Impressões",
+      cell: ({ row }) => <span className="font-mono text-sm text-t2">{formatCompact(row.original.impressions || 0)}</span>,
+      meta: { className: "text-right hidden md:table-cell" },
+    },
+    {
+      accessorKey: "clicks",
+      header: "Cliques",
+      cell: ({ row }) => <span className="font-mono text-sm text-t2">{formatNumber(row.original.clicks || 0)}</span>,
+      meta: { className: "text-right" },
+    },
+    {
+      accessorKey: "ctr",
+      header: "CTR",
+      cell: ({ row }) => {
+        const ctr = row.original.ctr || 0;
+        return <span className="font-mono text-sm text-t2">{ctr.toFixed(2)}%</span>;
+      },
+      meta: { className: "text-right hidden lg:table-cell" },
+    },
+    {
+      accessorKey: "cost",
+      header: "Custo",
+      cell: ({ row }) => <span className="font-mono text-sm text-t2">{formatBRL(row.original.cost || 0)}</span>,
+      meta: { className: "text-right" },
+    },
+    {
+      accessorKey: "conversions",
+      header: "Conv.",
+      cell: ({ row }) => {
+        const conv = row.original.conversions || 0;
+        return (
+          <span className={`font-mono text-sm font-semibold ${conv > 0 ? "text-success" : "text-muted-foreground"}`}>
+            {conv}
+          </span>
+        );
+      },
+      meta: { className: "text-right" },
+    },
+    {
+      accessorKey: "cpa",
+      header: "CPA",
+      cell: ({ row }) => {
+        const conv = row.original.conversions || 0;
+        const cost = row.original.cost || 0;
+        if (conv === 0) return <span className="text-muted-foreground">—</span>;
+        return <span className="font-mono text-sm text-t2">{formatBRL(cost / conv)}</span>;
+      },
+      meta: { className: "text-right hidden xl:table-cell" },
+      sortingFn: (rowA, rowB) => {
+        const cpaA = (rowA.original as any).conversions > 0 ? (rowA.original as any).cost / (rowA.original as any).conversions : Infinity;
+        const cpaB = (rowB.original as any).conversions > 0 ? (rowB.original as any).cost / (rowB.original as any).conversions : Infinity;
+        return cpaA - cpaB;
+      },
+    },
+    {
+      id: "actions",
+      header: "Ação",
+      cell: ({ row }) => {
+        const t = row.original;
+        const isNeg = shouldNegate(t) || t.suggested_action === "negate";
+        const isProm = shouldPromote(t) || t.suggested_action === "promote";
+        const loading = actioning === t.id;
+
+        if (isNeg) {
+          return (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+              onClick={() => handleNegate(t)}
+              disabled={loading}
+            >
+              {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Ban className="h-3 w-3" />}
+              Negativar
+            </Button>
+          );
+        }
+        if (isProm) {
+          return (
+            <Badge variant="outline" className="bg-success/10 text-success border-success/30 text-[10px] gap-1">
+              <Plus className="h-3 w-3" />
+              Boa keyword
+            </Badge>
+          );
+        }
+        return <span className="text-muted-foreground text-xs">—</span>;
+      },
+    },
+  ];
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -235,7 +279,7 @@ export default function SearchTermsPage() {
       <div>
         <h1 className="text-xl font-bold text-t1">Termos de Pesquisa</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Descubra o que as pessoas realmente buscam para encontrar seus anuncios e identifique oportunidades de novas keywords
+          Descubra o que as pessoas realmente buscam para encontrar seus anúncios e identifique oportunidades de novas keywords
         </p>
       </div>
 
@@ -244,7 +288,7 @@ export default function SearchTermsPage() {
         <KPICard
           title="Total de Termos"
           value={formatNumber(kpis.total)}
-          subtitle={`${kpis.withConv} com conversao`}
+          subtitle={`${kpis.withConv} com conversão`}
           icon={<Search className="h-4 w-4" />}
           delay={0}
           size="sm"
@@ -265,9 +309,9 @@ export default function SearchTermsPage() {
           size="sm"
         />
         <KPICard
-          title="Conversoes"
+          title="Conversões"
           value={formatNumber(kpis.conversions)}
-          subtitle={kpis.cpa > 0 ? `CPA med. ${formatBRL(kpis.cpa)}` : "Sem conv."}
+          subtitle={kpis.cpa > 0 ? `CPA méd. ${formatBRL(kpis.cpa)}` : "Sem conv."}
           icon={<Target className="h-4 w-4" />}
           delay={3}
           size="sm"
@@ -322,7 +366,7 @@ export default function SearchTermsPage() {
                 <h3 className="text-sm font-semibold text-t1">Gasto sem retorno</h3>
               </div>
               <p className="text-sm text-t2 mb-2">
-                <strong className="text-amber-500">{formatBRL(kpis.wasted)}</strong> gastos em termos de busca que nao geraram nenhuma conversao.
+                <strong className="text-amber-500">{formatBRL(kpis.wasted)}</strong> gastos em termos de busca que não geraram nenhuma conversão.
               </p>
               <p className="text-xs text-muted-foreground mb-3">
                 {kpis.toNegate} termos sugeridos para negativar — adicione como palavras-chave negativas para parar de gastar.
@@ -352,7 +396,7 @@ export default function SearchTermsPage() {
                 onClick={() => setView("promote")}
                 className="text-xs text-primary font-medium underline underline-offset-2 hover:text-primary/80"
               >
-                Ver sugestoes
+                Ver sugestões
               </button>
             </CardContent>
           </Card>
@@ -364,24 +408,30 @@ export default function SearchTermsPage() {
         {/* View tabs */}
         <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 overflow-x-auto">
           {([
-            { key: "all", label: "Todos" },
-            { key: "converters", label: "Com Conversao" },
-            { key: "promote", label: "Promover" },
-            { key: "negate", label: "Negativar" },
-            { key: "high-intent", label: "Alta Intencao" },
+            { key: "all", label: "Todos", count: terms?.length ?? 0 },
+            { key: "converters", label: "Com Conversão" },
+            { key: "promote", label: "Promover", count: kpis.toPromote },
+            { key: "negate", label: "Negativar", count: kpis.toNegate },
+            { key: "high-intent", label: "Alta Intenção" },
             { key: "long-tail", label: "Long-tail" },
-            { key: "wasted", label: "Sem Retorno" },
           ] as const).map((tab) => (
             <button
               key={tab.key}
               onClick={() => setView(tab.key)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                 view === tab.key
                   ? "bg-background text-t1 shadow-sm"
                   : "text-muted-foreground hover:text-t2"
               }`}
             >
               {tab.label}
+              {"count" in tab && tab.count != null && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-[5px] font-medium ${
+                  view === tab.key ? "bg-muted text-t2" : "bg-muted/50 text-muted-foreground"
+                }`}>
+                  {tab.count}
+                </span>
+              )}
             </button>
           ))}
         </div>

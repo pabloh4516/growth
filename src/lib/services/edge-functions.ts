@@ -21,6 +21,10 @@ export function syncGoogleAds(accountId: string) {
   return invoke("google-ads-sync", { accountId });
 }
 
+export function addNegativeKeyword(accountId: string, campaignExternalId: string, keyword: string, matchType = "EXACT") {
+  return invoke("google-ads-oauth", { action: "add-negative-keyword", accountId, campaignExternalId, keyword, matchType });
+}
+
 // ─── AI ────────────────────────────────────────────────
 export function triggerAIAnalysis(orgId: string) {
   return invoke("ai-analysis", { organizationId: orgId });
