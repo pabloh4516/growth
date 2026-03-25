@@ -23,7 +23,7 @@ function useAIStats() {
     queryFn: async () => {
       const { data: decisions } = await supabase
         .from("ai_decisions")
-        .select("id, status, created_at, action_type, decision_type, description, reasoning, estimated_impact, campaign_id, confidence")
+        .select("id, status, created_at, decision_type, reasoning, action_details, campaign_id, confidence, priority")
         .eq("organization_id", orgId!)
         .order("created_at", { ascending: false })
         .limit(30);
@@ -141,7 +141,7 @@ export default function InsightsPage() {
                       onApprove={() => approve(d.id)}
                       onReject={() => reject(d.id)}
                     >
-                      <strong>{d.decision_type || d.action_type || "Ação"}</strong> — {d.description || d.reasoning || "Sem descrição"}
+                      <strong>{d.decision_type || "Ação"}</strong> — {d.reasoning || "Sem descrição"}
                     </AgentFeedItem>
                   ))
                 ) : (
@@ -166,7 +166,7 @@ export default function InsightsPage() {
                       icon="✓"
                       meta={new Date(d.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                     >
-                      <strong>{d.decision_type || d.action_type || "Ação"}</strong> — {d.description || d.reasoning || "Executada com sucesso"}
+                      <strong>{d.decision_type || "Ação"}</strong> — {d.reasoning || "Executada com sucesso"}
                     </AgentFeedItem>
                   ))
                 ) : (
@@ -191,7 +191,7 @@ export default function InsightsPage() {
                       icon="✕"
                       meta={`${new Date(d.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} — ${d.status}`}
                     >
-                      <strong>{d.decision_type || d.action_type || "Ação"}</strong> — {d.description || d.reasoning || "Rejeitada"}
+                      <strong>{d.decision_type || "Ação"}</strong> — {d.reasoning || "Rejeitada"}
                     </AgentFeedItem>
                   ))
                 ) : (
