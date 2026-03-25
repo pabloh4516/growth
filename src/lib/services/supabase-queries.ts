@@ -343,7 +343,8 @@ export async function fetchSearchTerms(orgId: string) {
     .from("search_terms")
     .select("*")
     .eq("organization_id", orgId)
-    .order("impressions", { ascending: false });
+    .order("impressions", { ascending: false })
+    .limit(3000);
 
   if (error) throw error;
   return data;
@@ -544,7 +545,7 @@ export async function fetchKeywords(orgId: string) {
     .select("*")
     .eq("organization_id", orgId)
     .order("cost", { ascending: false })
-    .limit(500);
+    .limit(2000);
 
   if (error) throw error;
   return data;
