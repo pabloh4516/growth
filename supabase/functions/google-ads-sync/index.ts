@@ -74,7 +74,7 @@ serve(async (req) => {
 
         const { accessToken, developerToken } = tokenData;
         const customerId = account.account_id;
-        const syncStats = { campaigns: 0, adGroups: 0, keywords: 0, searchTerms: 0, geo: 0, placements: 0, device: 0, hourly: 0 };
+        const syncStats = { campaigns: 0, adGroups: 0, keywords: 0, searchTerms: 0, geo: 0, placements: 0, device: 0, hourly: 0, audiences: 0 };
 
         // =============================================
         // 1. FETCH CAMPAIGNS + AD GROUPS IN PARALLEL
@@ -205,6 +205,7 @@ serve(async (req) => {
           placementResults,
           deviceResults,
           hourlyResults,
+          audienceResults,
         ] = await Promise.all([
           googleAdsSearch(accessToken, customerId, campaignQuery, developerToken),
           googleAdsSearch(accessToken, customerId, GAQL.keywords(), developerToken).catch(() => []),
@@ -213,6 +214,7 @@ serve(async (req) => {
           googleAdsSearch(accessToken, customerId, GAQL.placements(), developerToken).catch(() => []),
           googleAdsSearch(accessToken, customerId, GAQL.deviceReport(), developerToken).catch(() => []),
           googleAdsSearch(accessToken, customerId, GAQL.hourlyReport(), developerToken).catch(() => []),
+          googleAdsSearch(accessToken, customerId, GAQL.audiences(), developerToken).catch(() => []),
         ]);
 
         console.log(`[sync] Account ${account.account_name}: ${campaignResults.length} campaign rows, ${keywordResults.length} kw, ${searchTermResults.length} st, ${geoResults.length} geo, ${placementResults.length} placements`);
@@ -525,6 +527,58 @@ serve(async (req) => {
             await supabase.from('metrics_by_hour').upsert(hrRows.slice(i, i + 50), { onConflict: 'organization_id,campaign_id,day_of_week,hour,period' });
           }
           syncStats.hourly = hrRows.length;
+        }
+
+        // ---- AUDIENCES (from Google Ads user lists) ----
+        if (audienceResults.length > 0) {
+          const typeMap: Record<string, string> = {
+            'CRM_BASED': 'custom',
+            'RULE_BASED': 'remarketing',
+            'LOGICAL_USER_LIST': 'custom',
+            'BASIC_USER_LIST': 'remarketing',
+            'SIMILAR': 'lookalike',
+            'REMARKETING': 'remarketing',
+          };
+
+          // Fetch existing Google Ads audiences to avoid duplicates
+          const { data: existingAudiences } = await supabase
+            .from('audiences')
+            .select('id, platform_audience_id')
+            .eq('organization_id', account.organization_id)
+            .eq('platform', 'google_ads');
+          const existingMap = new Map((existingAudiences || []).map((a: any) => [a.platform_audience_id, a.id]));
+
+          for (const row of audienceResults) {
+            const ul = row.userList;
+            const platformId = String(ul.id);
+            const sizeDisplay = Number(ul.sizeForDisplay || 0);
+            const sizeSearch = Number(ul.sizeForSearch || 0);
+            const size = Math.max(sizeDisplay, sizeSearch);
+
+            const audData = {
+              organization_id: account.organization_id,
+              name: ul.name || 'Sem nome',
+              description: ul.description || null,
+              platform: 'google_ads',
+              type: typeMap[ul.type] || 'custom',
+              source_type: 'google_ads',
+              status: 'synced',
+              size_estimate: size,
+              contact_count: size,
+              platform_audience_id: platformId,
+              sync_status: 'synced',
+              last_synced_at: new Date().toISOString(),
+            };
+
+            if (existingMap.has(platformId)) {
+              // Update existing
+              await supabase.from('audiences').update(audData).eq('id', existingMap.get(platformId));
+            } else {
+              // Insert new
+              await supabase.from('audiences').insert(audData);
+            }
+          }
+          syncStats.audiences = audienceResults.length;
         }
 
         // Update account last sync

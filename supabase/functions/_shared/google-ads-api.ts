@@ -457,4 +457,20 @@ export const GAQL = {
     ${campaignId ? `WHERE campaign.id = ${campaignId} AND` : 'WHERE'}
       campaign.status != 'REMOVED'
   `,
+
+  audiences: () => `
+    SELECT
+      user_list.id,
+      user_list.name,
+      user_list.description,
+      user_list.membership_status,
+      user_list.size_for_display,
+      user_list.size_for_search,
+      user_list.type,
+      user_list.membership_life_span
+    FROM user_list
+    WHERE user_list.membership_status = 'OPEN'
+    ORDER BY user_list.name ASC
+    LIMIT 500
+  `,
 };
