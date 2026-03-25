@@ -3,13 +3,16 @@ import { createClient } from "@/lib/supabase/client";
 async function invoke<T = unknown>(fnName: string, body: Record<string, unknown>): Promise<T> {
   const supabase = createClient();
 
-  // Verifica se há sessão ativa antes de chamar
-  const { data: { session } } = await supabase.auth.getSession();
+  // Garante sessão fresca — refreshSession() renova o token se expirado
+  const { data: { session } } = await supabase.auth.refreshSession();
   if (!session) {
     throw new Error("Sessão expirada. Faça login novamente.");
   }
 
-  const { data, error, response } = await supabase.functions.invoke(fnName, { body }) as any;
+  const { data, error, response } = await supabase.functions.invoke(fnName, {
+    body,
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  }) as any;
 
   if (error) {
     // Extrai a mensagem real do erro da edge function
