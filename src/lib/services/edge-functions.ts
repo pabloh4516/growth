@@ -1,8 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 
-const supabase = createClient();
-
 async function invoke<T = unknown>(fnName: string, body: Record<string, unknown>): Promise<T> {
+  const supabase = createClient();
   const { data, error } = await supabase.functions.invoke(fnName, { body });
   if (error) throw error;
   return data as T;
