@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/client";
 
+export async function invokeEdge<T = unknown>(fnName: string, body: Record<string, unknown>): Promise<T> {
+  return invoke<T>(fnName, body);
+}
+
 async function invoke<T = unknown>(fnName: string, body: Record<string, unknown>): Promise<T> {
   const supabase = createClient();
 

@@ -4,8 +4,7 @@ import { useEffect, useRef, useCallback, createContext, useContext, useState } f
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useOrgId } from "@/lib/hooks/use-org";
-
-const supabase = createClient();
+import { invokeEdge } from "@/lib/services/edge-functions";
 
 // Sync intervals
 const GOOGLE_ADS_SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -39,6 +38,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
     try {
       // Check if any accounts need sync
+      const supabase = createClient();
       const { data: accounts } = await supabase
         .from("ad_accounts")
         .select("id, last_sync_at")
@@ -56,29 +56,23 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
       setIsSyncing(true);
 
-      const { error } = await supabase.functions.invoke("google-ads-sync", {
-        body: { organizationId: orgId, scope: "campaigns_only" },
-      });
+      await invokeEdge("google-ads-sync", { organizationId: orgId, scope: "campaigns_only" });
 
-      if (!error) {
-        const now = new Date().toISOString();
-        setLastGoogleSync(now);
+      const now = new Date().toISOString();
+      setLastGoogleSync(now);
 
-        // Invalidate relevant queries so UI updates
-        queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
-        queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-        queryClient.invalidateQueries({ queryKey: ["top-campaigns"] });
-        queryClient.invalidateQueries({ queryKey: ["worst-campaigns"] });
-        queryClient.invalidateQueries({ queryKey: ["last-sync"] });
+      // Invalidate relevant queries so UI updates
+      queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["top-campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["worst-campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["last-sync"] });
 
-        // After syncing campaigns, re-match unmatched sales (non-blocking)
-        supabase.functions.invoke("rematch-sales", {
-          body: { organizationId: orgId },
-        }).then(() => {
-          queryClient.invalidateQueries({ queryKey: ["checkout-sales"] });
-          queryClient.invalidateQueries({ queryKey: ["utmify-sales"] });
-        }).catch(() => { /* silent */ });
-      }
+      // After syncing campaigns, re-match unmatched sales (non-blocking)
+      invokeEdge("rematch-sales", { organizationId: orgId }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["checkout-sales"] });
+        queryClient.invalidateQueries({ queryKey: ["utmify-sales"] });
+      }).catch(() => { /* silent */ });
     } catch (err) {
       console.error("Auto-sync Google Ads failed:", err);
     } finally {
@@ -119,7 +113,8 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!orgId) return;
 
-    const channel = supabase
+    const supabaseRT = createClient();
+    const channel = supabaseRT
       .channel(`realtime-${orgId}`)
       // Sales — webhooks insert new sales
       .on(
@@ -234,7 +229,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabaseRT.removeChannel(channel);
     };
   }, [orgId, queryClient]);
 

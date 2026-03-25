@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAudiences } from "@/lib/hooks/use-supabase-data";
 import { useOrgId } from "@/lib/hooks/use-org";
-import { generateAudiences } from "@/lib/services/edge-functions";
+import { generateAudiences, invokeEdge } from "@/lib/services/edge-functions";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,8 +17,6 @@ import { Loader2, Plus, Sparkles, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatCompact } from "@/lib/utils";
-
-const supabase = createClient();
 
 const TYPE_LABELS: Record<string, string> = {
   custom: "Custom", lookalike: "Lookalike", remarketing: "Remarketing", seed: "Seed",
@@ -42,10 +40,7 @@ export default function AudiencesPage() {
   const handleSyncToGoogle = async (audienceId: string) => {
     setSyncingId(audienceId);
     try {
-      const { data, error } = await supabase.functions.invoke("create-google-audience", {
-        body: { audienceId },
-      });
-      if (error) throw error;
+      await invokeEdge("create-google-audience", { audienceId });
       toast.success("Audiencia sincronizada com Google Ads!");
       queryClient.invalidateQueries({ queryKey: ["audiences"] });
     } catch (err: any) {
@@ -57,6 +52,7 @@ export default function AudiencesPage() {
 
   const handleCreate = async () => {
     if (!orgId || !form.name.trim()) return;
+    const supabase = createClient();
     const { error } = await supabase.from("audiences").insert({
       organization_id: orgId,
       name: form.name.trim(),

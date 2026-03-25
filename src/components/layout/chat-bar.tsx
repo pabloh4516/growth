@@ -2,11 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useOrgId } from "@/lib/hooks/use-org";
-import { createClient } from "@/lib/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-
-const supabase = createClient();
+import { invokeEdge } from "@/lib/services/edge-functions";
 
 interface Message {
   role: "user" | "ai";
@@ -38,15 +36,11 @@ export function ChatBar() {
     setIsTyping(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: {
-          organizationId: orgId,
-          message: msg,
-          conversationId,
-        },
+      const data = await invokeEdge<any>("ai-chat", {
+        organizationId: orgId,
+        message: msg,
+        conversationId: conversationId || undefined,
       });
-
-      if (error) throw error;
 
       if (data?.conversationId) {
         setConversationId(data.conversationId);
