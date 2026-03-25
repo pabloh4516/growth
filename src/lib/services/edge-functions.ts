@@ -2,8 +2,32 @@ import { createClient } from "@/lib/supabase/client";
 
 async function invoke<T = unknown>(fnName: string, body: Record<string, unknown>): Promise<T> {
   const supabase = createClient();
-  const { data, error } = await supabase.functions.invoke(fnName, { body });
-  if (error) throw error;
+
+  // Verifica se há sessão ativa antes de chamar
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error("Sessão expirada. Faça login novamente.");
+  }
+
+  const { data, error, response } = await supabase.functions.invoke(fnName, { body }) as any;
+
+  if (error) {
+    // Extrai a mensagem real do erro da edge function
+    let detail = error.message || "Erro desconhecido";
+    if (response) {
+      try {
+        const errorBody = await response.json();
+        detail = errorBody?.error || errorBody?.message || detail;
+      } catch {
+        try {
+          detail = await response.text();
+        } catch { /* mantém detail original */ }
+      }
+    }
+    console.error(`[EdgeFunction] ${fnName}:`, detail);
+    throw new Error(detail);
+  }
+
   return data as T;
 }
 
