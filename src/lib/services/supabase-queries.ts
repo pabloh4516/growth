@@ -169,12 +169,12 @@ export async function fetchUtmifySales(orgId: string, filters?: UtmifySalesFilte
     .from("utmify_sales")
     .select("*, campaigns:matched_campaign_id(id, name)")
     .eq("organization_id", orgId)
-    .order("created_at", { ascending: false });
+    .order("sale_date", { ascending: false });
 
   if (filters?.status) query = query.eq("status", filters.status);
   if (filters?.utm_source) query = query.eq("utm_source", filters.utm_source);
-  if (filters?.dateFrom) query = query.gte("created_at", filters.dateFrom);
-  if (filters?.dateTo) query = query.lte("created_at", filters.dateTo);
+  if (filters?.dateFrom) query = query.gte("sale_date", filters.dateFrom);
+  if (filters?.dateTo) query = query.lte("sale_date", filters.dateTo);
   if (filters?.limit) query = query.limit(filters.limit);
 
   const { data, error } = await query;
